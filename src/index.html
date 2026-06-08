@@ -3,15 +3,1266 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="styles.css">
-  <title>Vanilla JavaScript App new git test!</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>The Lodge</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
+
+    :root {
+      --bg: #0A0F0A;
+      --bg2: #0D130D;
+      --panel: #111811;
+      --panel2: #162016;
+      --line: #1E2A1E;
+      --line2: #2A3A2A;
+      --gold: #C8A84A;
+      --gold-lt: #E4CC80;
+      --gold-dk: #6A5618;
+      --gold-md: #9A7C2C;
+      --green-hi: #5A9A30;
+      --green-lt: #72B848;
+      --green-bg: #0C160C;
+      --amber: #C88020;
+      --amber-lt: #E09C30;
+      --amber-bg: #141008;
+      --sienna: #A85020;
+      --sienna-bg: #120C06;
+      --cream: #EDE6D0;
+      --dim: #7A8070;
+      --faint: #3A4838;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Barlow Condensed', sans-serif;
+      background: var(--bg);
+      background-image: radial-gradient(ellipse at 50% 0%, rgba(30, 60, 20, 0.4) 0%, transparent 70%);
+      min-height: 100vh;
+      color: var(--cream);
+      padding-bottom: 48px;
+      font-size: 16px;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: linear-gradient(180deg, #060C06 0%, #0C140C 100%);
+      border-bottom: 1px solid var(--gold-dk);
+      padding: 18px 16px 14px;
+      text-align: center;
+    }
+
+    .hdr-ornament {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .hdr-line {
+      flex: 1;
+      height: 1px;
+    }
+
+    .hdr-line.l {
+      background: linear-gradient(90deg, transparent, var(--gold-dk));
+    }
+
+    .hdr-line.r {
+      background: linear-gradient(90deg, var(--gold-dk), transparent);
+    }
+
+    .hdr-diamond {
+      color: var(--gold-md);
+      font-size: 0.55rem;
+    }
+
+    header h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2.1rem;
+      font-weight: 700;
+      color: var(--gold-lt);
+      letter-spacing: 6px;
+      text-transform: uppercase;
+    }
+
+    header p {
+      font-size: 0.62rem;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-top: 3px;
+      font-weight: 500;
+    }
+
+    .hdr-rule {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold-md), transparent);
+      margin-top: 12px;
+      opacity: 0.5;
+    }
+
+    /* ── SCREENS ── */
+    .screen {
+      display: none;
+      padding: 12px;
+      max-width: 420px;
+      margin: 0 auto;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    /* ── CARDS ── */
+    .card {
+      background: linear-gradient(180deg, var(--panel2) 0%, var(--panel) 100%);
+      border: 1px solid var(--line2);
+      border-top: 2px solid var(--gold-dk);
+      padding: 16px;
+      margin-bottom: 10px;
+      position: relative;
+    }
+
+    .card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 16px;
+      right: 16px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold-md), transparent);
+      opacity: 0.25;
+    }
+
+    .card-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--gold);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line2);
+      margin-bottom: 14px;
+    }
+
+    /* ── INPUTS ── */
+    label {
+      display: block;
+      font-size: 0.65rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--dim);
+      font-weight: 600;
+      margin-bottom: 5px;
+      margin-top: 14px;
+    }
+
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 12px;
+      background: var(--bg2);
+      border: 1px solid var(--line2);
+      color: var(--cream);
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1rem;
+      letter-spacing: 1px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--gold-dk);
+    }
+
+    input::placeholder {
+      color: var(--faint);
+    }
+
+    select option {
+      background: var(--bg);
+    }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 15px 10px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      border: none;
+      margin-top: 10px;
+      transition: filter 0.15s, transform 0.1s;
+    }
+
+    .btn:active {
+      filter: brightness(1.15);
+      transform: scale(0.98);
+    }
+
+    .btn-gold {
+      background: linear-gradient(180deg, var(--gold-md) 0%, var(--gold-dk) 100%);
+      color: var(--gold-lt);
+      border: 1px solid var(--gold-md);
+      border-bottom: 2px solid #2A1E04;
+      box-shadow: 0 2px 12px rgba(180, 140, 40, 0.15);
+    }
+
+    .btn-green {
+      background: linear-gradient(180deg, #2A4A18 0%, #18300C 100%);
+      color: var(--green-lt);
+      border: 1px solid #2A4A18;
+      border-bottom: 2px solid #0C1E06;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--dim);
+      border: 1px solid var(--line2);
+    }
+
+    .btn-warn {
+      background: transparent;
+      color: var(--sienna);
+      border: 1px solid var(--sienna);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--gold);
+      border: 1px solid var(--gold-dk);
+    }
+
+    .footer-nav {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .footer-nav .btn {
+      margin-top: 0;
+      flex: 1;
+    }
+
+    /* ── ROUND TYPE ── */
+    .round-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .round-option {
+      background: var(--panel2);
+      border: 1px solid var(--line2);
+      border-left: 3px solid var(--faint);
+      padding: 20px 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .round-option.selected,
+    .round-option:active {
+      border-color: var(--gold-dk);
+      border-left-color: var(--gold);
+      background: var(--panel);
+    }
+
+    .round-option h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--cream);
+      letter-spacing: 1px;
+    }
+
+    .round-option p {
+      font-size: 0.8rem;
+      color: var(--dim);
+      margin-top: 4px;
+      font-weight: 400;
+    }
+
+    /* ── PAR GRID ── */
+    .holes-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .hole-input-wrap {
+      text-align: center;
+    }
+
+    .hole-input-wrap span {
+      display: block;
+      font-size: 0.6rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 3px;
+      font-weight: 600;
+    }
+
+    .hole-input-wrap select {
+      padding: 8px 2px;
+      font-size: 0.95rem;
+      color: var(--gold);
+      font-weight: 600;
+      text-align: center;
+    }
+
+    /* ── GOAL CARDS ── */
+    .goal-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .goal-card {
+      background: var(--panel2);
+      border: 1px solid var(--line2);
+      border-left: 3px solid var(--faint);
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .goal-card.selected {
+      border-left-color: var(--gold);
+      border-color: var(--gold-dk);
+      background: var(--panel);
+    }
+
+    .goal-card h3 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--cream);
+      letter-spacing: 1px;
+    }
+
+    .goal-card p {
+      font-size: 0.78rem;
+      color: var(--dim);
+      margin-top: 3px;
+      font-weight: 400;
+    }
+
+    .goal-badge {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 1px;
+      background: var(--gold-dk);
+      padding: 3px 8px;
+      border: 1px solid var(--gold-md);
+      opacity: 0.9;
+    }
+
+    /* ── NINE TABS ── */
+    .nine-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--line2);
+      margin-bottom: 8px;
+    }
+
+    .nine-tab {
+      flex: 1;
+      padding: 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-align: center;
+      cursor: pointer;
+      color: var(--dim);
+      transition: all 0.2s;
+    }
+
+    .nine-tab.active {
+      color: var(--gold-lt);
+      border-bottom: 2px solid var(--gold);
+    }
+
+    /* ── SCORECARD TABLE ── */
+    .scorecard-wrap {
+      overflow-x: auto;
+      margin-top: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+
+    th {
+      background: linear-gradient(180deg, #0A1208 0%, var(--bg) 100%);
+      color: var(--gold);
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 600;
+      padding: 7px 3px;
+      text-align: center;
+      font-size: 0.6rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      border: 1px solid var(--line);
+    }
+
+    td {
+      padding: 6px 3px;
+      text-align: center;
+      border: 1px solid var(--line);
+      background: var(--bg2);
+      font-weight: 500;
+      color: var(--cream);
+      font-size: 0.82rem;
+      font-family: 'Barlow Condensed', sans-serif;
+    }
+
+    td.label-cell {
+      background: var(--panel);
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--dim);
+    }
+
+    td.eagle {
+      background: #2A2800 !important;
+      color: var(--gold-lt);
+    }
+
+    td.birdie {
+      background: #142808 !important;
+      color: var(--green-lt);
+    }
+
+    td.par-cell {
+      background: var(--bg2) !important;
+    }
+
+    td.bogey {
+      background: #1E1C08 !important;
+      color: var(--gold);
+    }
+
+    td.double {
+      background: #201200 !important;
+      color: var(--amber);
+    }
+
+    td.triple-plus {
+      background: #221006 !important;
+      color: var(--sienna);
+    }
+
+    /* ── SCORE ENTRY ── */
+    .hole-score-block {
+      background: linear-gradient(180deg, var(--panel2) 0%, var(--panel) 100%);
+      border: 1px solid var(--line2);
+      border-top: 2px solid var(--gold-dk);
+      padding: 14px 8px;
+      text-align: center;
+    }
+
+    .hole-label {
+      font-size: 0.68rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--dim);
+      font-weight: 600;
+    }
+
+    .par-label {
+      font-size: 0.82rem;
+      color: var(--gold);
+      font-weight: 600;
+      margin: 3px 0 12px;
+      letter-spacing: 1px;
+    }
+
+    .score-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    .score-btn {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, var(--gold-lt) 0%, var(--gold) 45%, var(--gold-dk) 100%);
+      border: 1px solid var(--gold-md);
+      color: var(--bg);
+      font-size: 1.5rem;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      user-select: none;
+      box-shadow: 0 2px 12px rgba(200, 168, 74, 0.3), inset 0 1px 0 rgba(255, 240, 160, 0.3);
+      transition: transform 0.1s, filter 0.1s;
+    }
+
+    .score-btn:active {
+      transform: scale(0.88);
+      filter: brightness(1.2);
+    }
+
+    .score-display {
+      min-width: 38px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: var(--cream);
+      text-align: center;
+      line-height: 1;
+    }
+
+    .score-display.eagle-c {
+      color: var(--gold-lt);
+    }
+
+    .score-display.birdie-c {
+      color: var(--green-lt);
+    }
+
+    .score-display.par-c {
+      color: var(--cream);
+    }
+
+    .score-display.bogey-c {
+      color: var(--gold);
+    }
+
+    .score-display.double-c {
+      color: var(--amber);
+    }
+
+    .score-display.triple-c {
+      color: var(--sienna);
+    }
+
+    .score-rel {
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-align: center;
+      margin-top: 8px;
+      height: 14px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* ── STATUS BAR ── */
+    .status-bar {
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border: 1px solid;
+      border-left: 3px solid;
+    }
+
+    .status-bar.on-track {
+      background: var(--green-bg);
+      border-color: #2A4A1E;
+      border-left-color: var(--green-hi);
+    }
+
+    .status-bar.swing-easy {
+      background: var(--amber-bg);
+      border-color: #4A3010;
+      border-left-color: var(--amber);
+    }
+
+    .status-bar.play-safe {
+      background: var(--sienna-bg);
+      border-color: #4A2010;
+      border-left-color: var(--sienna);
+    }
+
+    .status-icon {
+      font-size: 1.9rem;
+      flex-shrink: 0;
+    }
+
+    .status-text h3 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .on-track .status-text h3 {
+      color: var(--green-lt);
+    }
+
+    .swing-easy .status-text h3 {
+      color: var(--amber-lt);
+    }
+
+    .play-safe .status-text h3 {
+      color: var(--sienna);
+    }
+
+    .status-text p {
+      font-size: 0.68rem;
+      color: var(--dim);
+      margin-top: 2px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    /* ── STATS ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .stat-box {
+      background: linear-gradient(180deg, var(--panel2) 0%, var(--panel) 100%);
+      border: 1px solid var(--line2);
+      border-top: 2px solid var(--gold-dk);
+      padding: 10px 6px;
+      text-align: center;
+    }
+
+    .stat-box .val {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.9rem;
+      font-weight: 700;
+      color: var(--gold-lt);
+      line-height: 1;
+    }
+
+    .stat-box .lbl {
+      font-size: 0.58rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-top: 4px;
+    }
+
+    /* ── TIP BOX ── */
+    .tip-box {
+      background: var(--panel);
+      border: 1px solid var(--line2);
+      border-left: 3px solid var(--gold-dk);
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      font-size: 0.83rem;
+      color: var(--dim);
+      line-height: 1.55;
+      font-weight: 400;
+    }
+
+    .tip-box strong {
+      display: block;
+      font-size: 0.58rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--gold-md);
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+
+    /* ── SUMMARY ── */
+    .summary-badge {
+      text-align: center;
+      padding: 24px 10px 14px;
+    }
+
+    .summary-badge .big-score {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 5.5rem;
+      font-weight: 700;
+      color: var(--gold-lt);
+      line-height: 1;
+    }
+
+    .summary-badge .score-label {
+      font-size: 0.6rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-top: 6px;
+    }
+
+    .summary-badge .verdict {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.05rem;
+      font-weight: 600;
+      font-style: italic;
+      color: var(--cream);
+      margin-top: 14px;
+      line-height: 1.5;
+      padding: 0 8px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin: 14px 0;
+    }
+
+    .sum-stat {
+      background: var(--panel2);
+      border: 1px solid var(--line2);
+      border-top: 1px solid var(--gold-dk);
+      padding: 10px 6px;
+      text-align: center;
+    }
+
+    .sum-stat .sv {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--cream);
+    }
+
+    .sum-stat .sl {
+      font-size: 0.58rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-top: 3px;
+    }
+
+    .hole-breakdown {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .hb-cell {
+      background: var(--panel);
+      border: 1px solid var(--line2);
+      border-top: 1px solid var(--gold-dk);
+      padding: 8px 4px;
+      text-align: center;
+    }
+
+    .hb-cell .hn {
+      font-size: 0.6rem;
+      color: var(--dim);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .hb-cell .hs {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin: 3px 0;
+    }
+
+    .hb-cell .hr {
+      font-size: 0.6rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    /* ── POPUP ── */
+    .popup-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.88);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .popup-box {
+      background: var(--panel2);
+      border: 1px solid var(--gold-dk);
+      border-top: 2px solid var(--gold);
+      padding: 24px;
+      max-width: 340px;
+      width: 100%;
+    }
+
+    .popup-title {
+      font-family: 'Cormorant Garamond', serif;
+      color: var(--gold-lt);
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+    }
+
+    .popup-body {
+      font-size: 0.85rem;
+      color: var(--dim);
+      line-height: 1.6;
+      margin-bottom: 18px;
+    }
+
+    .popup-body span {
+      color: var(--cream);
+      font-weight: 600;
+    }
+
+    .popup-btns {
+      display: flex;
+      gap: 8px;
+    }
+
+    .popup-btns .btn {
+      margin-top: 0;
+      flex: 1;
+    }
+  </style>
 </head>
 
 <body>
-  <main>
-    <h1>Vanilla JavaScript App</h1>
-  </main>
+
+  <header>
+    <div class="hdr-ornament">
+      <div class="hdr-line l"></div>
+      <div class="hdr-diamond">◆</div>
+      <div class="hdr-line r"></div>
+    </div>
+    <h1>The Lodge</h1>
+    <p>Golf Score Tracker</p>
+    <div class="hdr-rule"></div>
+  </header>
+
+  <!-- S1: Round Type -->
+  <div class="screen active" id="screen-round-type">
+    <div class="card" style="margin-top:12px;">
+      <div class="card-title">How Many Holes?</div>
+      <div class="round-options">
+        <div class="round-option" onclick="selectRoundType(9,this)">
+          <h2>9 Holes</h2>
+          <p>Front nine or back nine</p>
+        </div>
+        <div class="round-option" onclick="selectRoundType(18,this)">
+          <h2>Full 18</h2>
+          <p>Enter pars for the full round</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S2: Setup -->
+  <div class="screen" id="screen-setup">
+    <div class="card" style="margin-top:12px;">
+      <div class="card-title" id="setup-title">Course Setup</div>
+      <label>Course Name</label>
+      <input type="text" id="course-name" placeholder="e.g. Pebble Beach" />
+      <div id="nine-picker-wrap">
+        <label>Which Nine?</label>
+        <select id="nine-select" onchange="buildParGrid()">
+          <option value="front">Front Nine (Holes 1–9)</option>
+          <option value="back">Back Nine (Holes 10–18)</option>
+        </select>
+      </div>
+      <label id="par-label-front" style="margin-top:14px;">Par — Front Nine</label>
+      <div class="holes-grid" id="par-grid-front"></div>
+      <div id="back-nine-par-wrap">
+        <label style="margin-top:14px;">Par — Back Nine</label>
+        <div class="holes-grid" id="par-grid-back"></div>
+      </div>
+      <button class="btn btn-gold" onclick="goToGoal()">Select Goal →</button>
+      <button class="btn btn-ghost" onclick="goTo('screen-round-type')">← Back</button>
+    </div>
+  </div>
+
+  <!-- S3: Goal -->
+  <div class="screen" id="screen-goal">
+    <div class="card" style="margin-top:12px;">
+      <div class="card-title">Your Goal</div>
+      <div class="goal-options">
+        <div class="goal-card" onclick="selectGoal(100,this)">
+          <h3>Break 100</h3>
+          <p>Bogeys and double bogeys</p>
+          <span class="goal-badge" id="badge-100">+27/18</span>
+        </div>
+        <div class="goal-card" onclick="selectGoal(90,this)">
+          <h3>Break 90</h3>
+          <p>Mostly bogeys, some doubles</p>
+          <span class="goal-badge" id="badge-90">+17/18</span>
+        </div>
+        <div class="goal-card" onclick="selectGoal(80,this)">
+          <h3>Break 80</h3>
+          <p>Pars and bogeys</p>
+          <span class="goal-badge" id="badge-80">+7/18</span>
+        </div>
+      </div>
+      <button class="btn btn-gold" onclick="goToScorecard()">Generate Scorecard →</button>
+      <button class="btn btn-ghost" onclick="goTo('screen-setup')">← Back</button>
+    </div>
+  </div>
+
+  <!-- S4: Scorecard -->
+  <div class="screen" id="screen-scorecard">
+    <div style="margin-top:12px;">
+      <div id="status-bar-wrap"></div>
+      <div class="stats-row" id="stats-row"></div>
+      <div id="tip-box-wrap"></div>
+      <div class="card">
+        <div class="card-title" id="sc-title">Scorecard</div>
+        <div id="nine-tabs-wrap" class="nine-tabs" style="display:none;">
+          <div class="nine-tab active" id="tab-front" onclick="switchNine('front')">Front Nine</div>
+          <div class="nine-tab" id="tab-back" onclick="switchNine('back')">Back Nine</div>
+        </div>
+        <div class="scorecard-wrap">
+          <table id="scorecard-table"></table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" id="entry-title">Enter Scores</div>
+        <div id="score-entry-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;"></div>
+      </div>
+      <div class="footer-nav">
+        <button class="btn btn-outline" id="btn-switch-nine" style="display:none;" onclick="switchNineBtn()">Back Nine
+          →</button>
+        <button class="btn btn-gold" onclick="finishRound()">Finish Round</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- S5: Summary -->
+  <div class="screen" id="screen-summary">
+    <div style="margin-top:12px;">
+      <div class="card">
+        <div class="card-title" id="sum-title">Round Summary</div>
+        <div class="summary-badge">
+          <div class="big-score" id="sum-score">—</div>
+          <div class="score-label" id="sum-course">—</div>
+          <div class="verdict" id="sum-verdict">—</div>
+        </div>
+        <div class="summary-grid" id="sum-grid"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Hole by Hole</div>
+        <div id="sum-nine-tabs-wrap" class="nine-tabs" style="display:none;">
+          <div class="nine-tab active" id="sum-tab-front" onclick="switchSumNine('front')">Front Nine</div>
+          <div class="nine-tab" id="sum-tab-back" onclick="switchSumNine('back')">Back Nine</div>
+        </div>
+        <div class="hole-breakdown" id="hole-breakdown"></div>
+      </div>
+      <div class="footer-nav">
+        <button class="btn btn-ghost" onclick="goTo('screen-scorecard')">← Back</button>
+        <button class="btn btn-gold" onclick="saveScreenshot()">📸 Save</button>
+        <button class="btn btn-warn" onclick="resetAll()">New Round</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script>
+    const S = { roundType: 9, nineChoice: 'front', course: '', goal: null, pars: [], targets: [], scores: [], currentNine: 'front' };
+
+    function goTo(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0, 0); }
+
+    function selectRoundType(type, el) {
+      S.roundType = type;
+      document.querySelectorAll('.round-option').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      const is18 = type === 18;
+      document.getElementById('nine-picker-wrap').style.display = is18 ? 'none' : '';
+      document.getElementById('back-nine-par-wrap').style.display = is18 ? '' : 'none';
+      document.getElementById('par-label-front').textContent = is18 ? 'Par — Front Nine (Holes 1–9)' : 'Par for Each Hole';
+      document.getElementById('setup-title').textContent = is18 ? 'Full 18 — Setup' : '9 Holes — Setup';
+      const lbl = is18 ? ['27/18', '17/18', '7/18'] : ['13/9', '8/9', '3/9'];
+      document.getElementById('badge-100').textContent = '+' + lbl[0];
+      document.getElementById('badge-90').textContent = '+' + lbl[1];
+      document.getElementById('badge-80').textContent = '+' + lbl[2];
+      buildParGrid(); goTo('screen-setup');
+    }
+
+    function buildParGrid() {
+      const nine = document.getElementById('nine-select').value;
+      buildGrid('par-grid-front', S.roundType === 9 ? (nine === 'front' ? 1 : 10) : 1, 9);
+      if (S.roundType === 18) buildGrid('par-grid-back', 10, 9);
+    }
+
+    function buildGrid(id, start, n) {
+      const g = document.getElementById(id); if (!g) return; g.innerHTML = '';
+      for (let i = 0; i < n; i++) {
+        const h = start + i, w = document.createElement('div'); w.className = 'hole-input-wrap';
+        w.innerHTML = `<span>H${h}</span><select id="par-h${h}"><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option></select>`;
+        g.appendChild(w);
+      }
+    }
+    buildGrid('par-grid-front', 1, 9); buildGrid('par-grid-back', 10, 9);
+
+    function goToGoal() {
+      S.course = document.getElementById('course-name').value || 'The Course';
+      if (S.roundType === 9) {
+        S.nineChoice = document.getElementById('nine-select').value;
+        const st = S.nineChoice === 'front' ? 1 : 10;
+        S.pars = Array.from({ length: 9 }, (_, i) => parseInt(document.getElementById(`par-h${st + i}`).value));
+      } else {
+        S.pars = Array.from({ length: 18 }, (_, i) => parseInt(document.getElementById(`par-h${i + 1}`).value));
+      }
+      goTo('screen-goal');
+    }
+
+    let selGoal = null;
+    function selectGoal(g, el) { document.querySelectorAll('.goal-card').forEach(c => c.classList.remove('selected')); el.classList.add('selected'); selGoal = g; }
+
+    function getOver() { const b18 = { 100: 27, 90: 17, 80: 7 }, b9 = { 100: 13, 90: 8, 80: 3 }; return S.roundType === 18 ? b18[S.goal] : b9[S.goal]; }
+    function getBudget() { return S.pars.reduce((a, b) => a + b, 0) + getOver(); }
+    function totalHoles() { return S.roundType; }
+
+    function computeTargets() {
+      const p = S.pars, t = [...p]; let rem = getOver();
+      const sh = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; } return a; };
+      const ord = [...sh(p.map((_, i) => i).filter(i => p[i] === 5)).map(i => ({ i, cap: Math.random() < 0.75 ? 2 : 1 })),
+      ...sh(p.map((_, i) => i).filter(i => p[i] === 4)).map(i => ({ i, cap: 2 })),
+      ...sh(p.map((_, i) => i).filter(i => p[i] === 3)).map(i => ({ i, cap: 1 }))];
+      let ch = true;
+      while (rem > 0 && ch) { ch = false; for (const { i, cap } of ord) { if (rem <= 0) break; if (t[i] - p[i] < cap) { t[i]++; rem--; ch = true; } } }
+      if (rem > 0) for (let i = 0; i < p.length && rem > 0; i++)if (t[i] - p[i] < 2) { t[i]++; rem--; }
+      S.targets = t;
+    }
+
+    function goToScorecard() {
+      if (!selGoal) { alert('Please select a goal.'); return; }
+      S.goal = selGoal; S.scores = new Array(totalHoles()).fill(null);
+      computeTargets();
+      S.currentNine = S.roundType === 9 ? S.nineChoice : 'front';
+      const is18 = S.roundType === 18;
+      document.getElementById('nine-tabs-wrap').style.display = is18 ? 'flex' : 'none';
+      document.getElementById('btn-switch-nine').style.display = is18 ? '' : 'none';
+      if (is18) { document.getElementById('tab-front').classList.add('active'); document.getElementById('tab-back').classList.remove('active'); document.getElementById('btn-switch-nine').textContent = 'Back Nine →'; }
+      document.getElementById('sc-title').textContent = S.course;
+      renderSC(); renderEntry(); updateLive(); goTo('screen-scorecard');
+    }
+
+    function off() { return S.roundType === 18 && S.currentNine === 'back' ? 9 : 0; }
+
+    function renderSC() {
+      const o = off(), is18 = S.roundType === 18;
+      const hs = is18 ? (S.currentNine === 'front' ? 1 : 10) : (S.nineChoice === 'front' ? 1 : 10);
+      const ps = S.pars.slice(o, o + 9), ts = S.targets.slice(o, o + 9);
+      document.getElementById('scorecard-table').innerHTML = `
+    <thead><tr><th>Hole</th>${Array.from({ length: 9 }, (_, i) => `<th>${hs + i}</th>`).join('')}<th>Tot</th></tr></thead>
+    <tbody>
+      <tr><td class="label-cell">Par</td>${ps.map(p => `<td>${p}</td>`).join('')}<td>${ps.reduce((a, b) => a + b, 0)}</td></tr>
+      <tr><td class="label-cell">Target</td>${ts.map(t => `<td style="color:var(--gold)">${t}</td>`).join('')}<td style="color:var(--gold)">${ts.reduce((a, b) => a + b, 0)}</td></tr>
+      <tr><td class="label-cell">Score</td>${Array.from({ length: 9 }, (_, i) => `<td id="sc-${o + i}">—</td>`).join('')}<td id="sc-tot">—</td></tr>
+      <tr><td class="label-cell">+/−</td>${Array.from({ length: 9 }, (_, i) => `<td id="vs-${o + i}">—</td>`).join('')}<td id="vs-tot">—</td></tr>
+    </tbody>`;
+      for (let i = o; i < o + 9; i++)updSC(i); updNineTot(o);
+    }
+
+    function renderEntry() {
+      const o = off(), is18 = S.roundType === 18;
+      const hs = is18 ? (S.currentNine === 'front' ? 1 : 10) : (S.nineChoice === 'front' ? 1 : 10);
+      const grid = document.getElementById('score-entry-grid');
+      grid.innerHTML = '';
+      grid.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:8px;';
+      document.getElementById('entry-title').textContent = is18 ? (S.currentNine === 'front' ? 'Front Nine — Scores' : 'Back Nine — Scores') : 'Enter Scores';
+      for (let i = o; i < o + 9; i++) {
+        const b = document.createElement('div'); b.className = 'hole-score-block';
+        b.innerHTML = `<div class="hole-label">Hole ${hs + (i - o)}</div>
+      <div class="par-label">New Par ${S.targets[i]}</div>
+      <div class="score-controls">
+        <button class="score-btn" onclick="chg(${i},-1)">−</button>
+        <div class="score-display" id="dp-${i}">—</div>
+        <button class="score-btn" onclick="chg(${i},1)">+</button>
+      </div>
+      <div class="score-rel" id="rl-${i}"></div>`;
+        grid.appendChild(b);
+        if (S.scores[i] !== null) updEntry(i);
+      }
+      // No centering needed for single column
+    }
+
+    function switchNine(nine) {
+      S.currentNine = nine;
+      document.getElementById('tab-front').classList.toggle('active', nine === 'front');
+      document.getElementById('tab-back').classList.toggle('active', nine === 'back');
+      document.getElementById('btn-switch-nine').textContent = nine === 'front' ? 'Back Nine →' : '← Front Nine';
+      renderSC(); renderEntry();
+    }
+    function switchNineBtn() { switchNine(S.currentNine === 'front' ? 'back' : 'front'); window.scrollTo(0, 0); }
+
+    function chg(i, d) {
+      const c = S.scores[i];
+      S.scores[i] = Math.max(1, Math.min(15, c === null ? (d > 0 ? S.pars[i] : S.pars[i] - 1) : c + d));
+      updSC(i); updEntry(i); updNineTot(off()); updateLive();
+      // Bump animation on score number
+      const dp = document.getElementById(`dp-${i}`);
+      if (dp) { dp.classList.remove('bump'); void dp.offsetWidth; dp.classList.add('bump'); setTimeout(() => dp.classList.remove('bump'), 200); }
+    }
+
+    function cls(s, p) { const d = s - p; if (d <= -2) return 'eagle'; if (d === -1) return 'birdie'; if (d === 0) return 'par-cell'; if (d === 1) return 'bogey'; if (d === 2) return 'double'; return 'triple-plus'; }
+    function dcls(s, t) { const d = s - t; if (d <= -2) return 'eagle-c'; if (d === -1) return 'birdie-c'; if (d === 0) return 'par-c'; if (d === 1) return 'bogey-c'; if (d === 2) return 'double-c'; return 'triple-c'; }
+    function rel(s, t) {
+      const d = s - t;
+      if (d <= -2) return { t: 'Eagle', c: 'var(--gold-lt)' };
+      if (d === -1) return { t: 'Birdie', c: 'var(--green-lt)' };
+      if (d === 0) return { t: 'On Target', c: 'var(--green-hi)' };
+      if (d === 1) return { t: '+1 Over', c: 'var(--gold)' };
+      if (d === 2) return { t: '+2 Over', c: 'var(--amber)' };
+      return { t: `+${d} Over`, c: 'var(--sienna)' };
+    }
+
+    function updSC(i) {
+      const sc = document.getElementById(`sc-${i}`), vs = document.getElementById(`vs-${i}`); if (!sc || !vs) return;
+      const s = S.scores[i];
+      if (s !== null) {
+        sc.textContent = s; sc.className = cls(s, S.pars[i]);
+        const d = s - S.targets[i];
+        vs.textContent = d === 0 ? '✓' : d > 0 ? `+${d}` : `${d}`;
+        vs.style.color = d > 0 ? 'var(--sienna)' : d < 0 ? 'var(--green-lt)' : 'var(--dim)';
+      } else { sc.textContent = '—'; sc.className = ''; vs.textContent = '—'; vs.style.color = ''; }
+    }
+    function updEntry(i) {
+      const dp = document.getElementById(`dp-${i}`), rl = document.getElementById(`rl-${i}`); if (!dp || !rl) return;
+      const s = S.scores[i];
+      if (s !== null) { dp.textContent = s; dp.className = `score-display ${dcls(s, S.targets[i])}`; const r = rel(s, S.targets[i]); rl.textContent = r.t; rl.style.color = r.c; }
+      else { dp.textContent = '—'; dp.className = 'score-display'; rl.textContent = ''; }
+    }
+    function updNineTot(o) {
+      const t = document.getElementById('sc-tot'), v = document.getElementById('vs-tot'); if (!t || !v) return;
+      const ns = S.scores.slice(o, o + 9).filter(s => s !== null);
+      if (ns.length) { const s = ns.reduce((a, b) => a + b, 0), p = S.pars.slice(o, o + 9).reduce((a, b) => a + b, 0); t.textContent = s; const d = s - p; v.textContent = d >= 0 ? `+${d}` : `${d}`; }
+      else { t.textContent = '—'; v.textContent = '—'; }
+    }
+
+    const tips = {
+      on: ["Aim for the fat of the green, not the flag. Protect this round.", "A bogey is a fine score. Keep playing smart.", "Note where trouble is — miss it to the safe side every hole.", "On par 5s, three solid shots beat two risky ones every time.", "Pick a landing zone off the tee, not a target line.", "Leave the ball below the hole. Uphill putts only.", "Between clubs? Take more club and commit.", "Play the course in front of you, not the one in your head.", "Chip out from trees. One stroke beats three.", "Never aim at a flag tucked tight behind a bunker."],
+      sw: ["Stop aiming at flags. Pick a spot away from trouble.", "Lay up to your favourite yardage. Control beats distance.", "Water left? Aim right. Use the whole fairway.", "Bogey from the middle of the green beats double from a hero shot.", "3-wood off the tee beats a driver in the rough.", "Avoid the 3-putt. Lag it close.", "Chip out from rough. Never hero it.", "If you doubt the shot, don't play it.", "Play to the open side of the green.", "Check you can clear the hazard. If not, lay up."],
+      ps: ["Don't make up shots in one swing. One hole at a time.", "Get the ball back in play first. Period.", "Bogey from a chip-out is a win right now.", "A double is fine. Two in a row kills rounds — reset now.", "Take the bunker out of play, even if it means laying up.", "Find the widest part of the fairway and aim there.", "Forget the flag — play to the biggest part of the green.", "Slow down. Bad decisions come from rushing.", "Walk off with a double, not worse.", "From rough or trouble: advance and escape. Nothing more."]
+    };
+    const rand = a => a[Math.floor(Math.random() * a.length)];
+
+    function updateLive() {
+      const bud = getBudget(), ent = S.scores.filter(s => s !== null), hp = ent.length, sc = ent.reduce((a, b) => a + b, 0);
+      const tgt = S.targets.slice(0, hp).reduce((a, b) => a + b, 0);
+      const hl = totalHoles() - hp, head = bud - sc - S.pars.slice(hp).reduce((a, b) => a + b, 0), ov = sc - tgt;
+      let st = 'on-track', ti = 'On Track', ic = '🌿', tp = '';
+      if (hp === 0) { tp = `Budget: ${bud} strokes (${getOver()} over par). One shot at a time.`; }
+      else if (ov <= 0) { st = 'on-track'; ic = '🌿'; ti = 'On Track'; tp = rand(tips.on); }
+      else if (ov <= 4) { st = 'swing-easy'; ic = '🍂'; ti = 'Swing Easy'; tp = rand(tips.sw); }
+      else { st = 'play-safe'; ic = '🦌'; ti = 'Play Safe'; tp = rand(tips.ps); }
+      let proj = '—', pc = 'var(--gold-lt)';
+      if (hp > 0) { proj = Math.round(sc + (sc / hp) * hl); pc = proj < bud ? 'var(--green-lt)' : 'var(--sienna)'; }
+      document.getElementById('status-bar-wrap').innerHTML = `<div class="status-bar ${st}"><div class="status-icon">${ic}</div><div class="status-text"><h3>${ti}</h3><p>${hp === 0 ? `Goal: Break ${S.goal}` : `${hp} of ${totalHoles()} holes played`}</p></div></div>`;
+      document.getElementById('stats-row').innerHTML = `
+    <div class="stat-box"><div class="val">${hp > 0 ? sc : '—'}</div><div class="lbl">Score</div></div>
+    <div class="stat-box"><div class="val" style="color:${head >= 0 ? 'var(--green-lt)' : 'var(--sienna)'}">${hp > 0 ? (head >= 0 ? '+' + head : head) : '—'}</div><div class="lbl">Headroom</div></div>
+    <div class="stat-box"><div class="val" style="color:${pc}">${proj}</div><div class="lbl">Projected</div></div>`;
+      document.getElementById('tip-box-wrap').innerHTML = `<div class="tip-box"><strong>⛳ Caddie</strong>${tp}</div>`;
+    }
+
+    function finishRound() {
+      const miss = [];
+      S.scores.forEach((s, i) => { if (s === null) { const h = S.roundType === 18 ? i + 1 : (S.nineChoice === 'front' ? i + 1 : i + 10); miss.push(h); } });
+      if (miss.length) { showMissing(miss); return; }
+      buildSum(); goTo('screen-summary');
+    }
+
+    function showMissing(miss) {
+      const ex = document.getElementById('mp'); if (ex) ex.remove();
+      const o = document.createElement('div'); o.id = 'mp'; o.className = 'popup-overlay';
+      o.innerHTML = `<div class="popup-box"><div class="popup-title">Missing Scores</div><div class="popup-body">These holes have no score:<br><span>${miss.map(h => `Hole ${h}`).join(', ')}</span></div><div class="popup-btns"><button class="btn btn-warn" onclick="closeMissOk()">Finish Anyway</button><button class="btn btn-gold" onclick="closeMiss()">Go Back</button></div></div>`;
+      document.body.appendChild(o);
+    }
+    function closeMiss() { const p = document.getElementById('mp'); if (p) p.remove(); }
+    function closeMissOk() { closeMiss(); buildSum(); goTo('screen-summary'); }
+
+    let sumNine = 'front';
+    function switchSumNine(nine) { sumNine = nine; document.getElementById('sum-tab-front').classList.toggle('active', nine === 'front'); document.getElementById('sum-tab-back').classList.toggle('active', nine === 'back'); renderSumHoles(); }
+
+    function buildSum() {
+      const tot = S.scores.filter(s => s !== null).reduce((a, b) => a + b, 0), bud = getBudget(), par = S.pars.reduce((a, b) => a + b, 0), vt = tot - bud, sc = S.scores.filter(s => s !== null).length, is18 = S.roundType === 18;
+      document.getElementById('sum-title').textContent = S.course;
+      document.getElementById('sum-score').textContent = tot || '—';
+      document.getElementById('sum-course').textContent = `${S.course} · Break ${S.goal}`;
+      let vd = '', vc = 'var(--cream)';
+      if (sc === 0) { vd = 'No scores entered.'; vc = 'var(--dim)'; }
+      else if (vt <= -5) { vd = 'Outstanding — you smashed your goal.'; vc = 'var(--gold-lt)'; }
+      else if (vt < 0) { vd = 'Goal achieved. Smart golf wins.'; vc = 'var(--green-lt)'; }
+      else if (vt <= 4) { vd = 'So close. A little more patience next time.'; vc = 'var(--gold)'; }
+      else { vd = 'Every round makes you better. Keep at it.'; vc = 'var(--dim)'; }
+      document.getElementById('sum-verdict').textContent = vd; document.getElementById('sum-verdict').style.color = vc;
+      let ea = 0, bi = 0, pa = 0, bo = 0, db = 0, tr = 0;
+      S.scores.forEach((s, i) => { if (s === null) return; const d = s - S.pars[i]; if (d <= -2) ea++; else if (d === -1) bi++; else if (d === 0) pa++; else if (d === 1) bo++; else if (d === 2) db++; else tr++; });
+      document.getElementById('sum-grid').innerHTML = `
+    <div class="sum-stat"><div class="sv" style="color:var(--gold-lt)">${ea + bi}</div><div class="sl">Eagles/Birdies</div></div>
+    <div class="sum-stat"><div class="sv" style="color:var(--green-lt)">${pa}</div><div class="sl">Pars</div></div>
+    <div class="sum-stat"><div class="sv" style="color:var(--gold)">${bo}</div><div class="sl">Bogeys</div></div>
+    <div class="sum-stat"><div class="sv" style="color:var(--amber)">${db}</div><div class="sl">Doubles</div></div>
+    <div class="sum-stat"><div class="sv" style="color:var(--sienna)">${tr}</div><div class="sl">Triple+</div></div>
+    <div class="sum-stat"><div class="sv">${par}</div><div class="sl">Course Par</div></div>`;
+      document.getElementById('sum-nine-tabs-wrap').style.display = is18 ? 'flex' : 'none';
+      sumNine = 'front'; if (is18) { document.getElementById('sum-tab-front').classList.add('active'); document.getElementById('sum-tab-back').classList.remove('active'); }
+      renderSumHoles();
+    }
+
+    function renderSumHoles() {
+      const is18 = S.roundType === 18, st = is18 ? (sumNine === 'front' ? 0 : 9) : 0, hs = is18 ? (sumNine === 'front' ? 1 : 10) : (S.nineChoice === 'front' ? 1 : 10);
+      const bkd = document.getElementById('hole-breakdown'); bkd.innerHTML = '';
+      for (let i = st; i < st + 9; i++) {
+        const cell = document.createElement('div'); cell.className = 'hb-cell';
+        const s = S.scores[i], t = S.targets[i];
+        if (s !== null) {
+          const d = s - t, sc = d <= 0 ? 'var(--green-lt)' : d === 1 ? 'var(--gold)' : 'var(--sienna)', rl = d < 0 ? `${Math.abs(d)} Under` : d === 0 ? 'On Tgt' : d === 1 ? '+1 Over' : `+${d} Over`, rc = d <= 0 ? 'var(--green-hi)' : d === 1 ? 'var(--gold)' : 'var(--sienna)';
+          cell.innerHTML = `<div class="hn">H${hs + (i - st)} · T${t}</div><div class="hs" style="color:${sc}">${s}</div><div class="hr" style="color:${rc}">${rl}</div>`;
+        } else {
+          cell.innerHTML = `<div class="hn">H${hs + (i - st)} · T${t}</div><div class="hs" style="color:var(--faint)">—</div><div class="hr"></div>`;
+        }
+        bkd.appendChild(cell);
+      }
+    }
+
+    function saveScreenshot() {
+      const nav = document.querySelector('#screen-summary .footer-nav'); nav.style.display = 'none';
+      html2canvas(document.getElementById('screen-summary'), { backgroundColor: '#0A0F0A', scale: 2, useCORS: true, scrollY: -window.scrollY }).then(c => {
+        nav.style.display = 'flex'; const l = document.createElement('a'), d = new Date();
+        l.download = `${(S.course || 'Lodge').replace(/\s+/g, '-')}-${d.getMonth() + 1}-${d.getDate()}-${d.getFullYear()}.png`;
+        l.href = c.toDataURL('image/png'); l.click();
+      }).catch(() => { nav.style.display = 'flex'; alert('Screenshot failed.'); });
+    }
+
+    function resetAll() {
+      selGoal = null; S.scores = []; S.pars = []; S.targets = []; S.goal = null;
+      document.getElementById('course-name').value = '';
+      document.querySelectorAll('.goal-card,.round-option').forEach(c => c.classList.remove('selected'));
+      buildGrid('par-grid-front', 1, 9); buildGrid('par-grid-back', 10, 9);
+      goTo('screen-round-type');
+    }
+  </script>
 </body>
 
 </html>
