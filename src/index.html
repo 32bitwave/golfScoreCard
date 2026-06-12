@@ -897,7 +897,7 @@
         <label style="margin-top:14px;">Par — Back Nine</label>
         <div class="holes-grid" id="par-grid-back"></div>
       </div>
-      <button class="btn btn-gold" onclick="goToGoal()">Select Goal →</button>
+      <button class="btn btn-gold" onclick="goToGoalScreen()">Select Goal →</button>
       <button class="btn btn-ghost" onclick="goTo('screen-round-type')">← Back</button>
     </div>
   </div>
@@ -949,8 +949,8 @@
         <div id="score-entry-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;"></div>
       </div>
       <div class="footer-nav">
-        <button class="btn btn-outline" id="btn-switch-nine" style="display:none;" onclick="switchNineBtn()">Back Nine
-          →</button>
+        <button class="btn btn-outline" id="btn-switch-nine" style="display:none;" onclick="switchNineFooterBtn()">Back
+          Nine →</button>
         <button class="btn btn-gold" onclick="finishRound()">Finish Round</button>
       </div>
     </div>
@@ -971,8 +971,8 @@
       <div class="card">
         <div class="card-title">Hole by Hole</div>
         <div id="sum-nine-tabs-wrap" class="nine-tabs" style="display:none;">
-          <div class="nine-tab active" id="sum-tab-front" onclick="switchSumNine('front')">Front Nine</div>
-          <div class="nine-tab" id="sum-tab-back" onclick="switchSumNine('back')">Back Nine</div>
+          <div class="nine-tab active" id="sum-tab-front" onclick="switchSummaryNine('front')">Front Nine</div>
+          <div class="nine-tab" id="sum-tab-back" onclick="switchSummaryNine('back')">Back Nine</div>
         </div>
         <div class="hole-breakdown" id="hole-breakdown"></div>
       </div>
@@ -986,282 +986,988 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script>
-    const S = { roundType: 9, nineChoice: 'front', course: '', goal: null, pars: [], targets: [], scores: [], currentNine: 'front' };
 
-    function goTo(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0, 0); }
+    // ── GAME STATE ──────────────────────────────────────────────────────────────
+    // Single source of truth for the entire round. All screens read from here.
 
-    function selectRoundType(type, el) {
-      S.roundType = type;
-      document.querySelectorAll('.round-option').forEach(c => c.classList.remove('selected'));
-      el.classList.add('selected');
+    const SESSION_KEY = 'lodge_round_in_progress';
+
+    const gameState = {
+      roundType: 9,       // 9 or 18 holes
+      nineChoice: 'front', // 'front' or 'back' — only used when roundType === 9
+      courseName: '',
+      goal: null,    // 100, 90, or 80
+      pars: [],      // actual par per hole, length 9 or 18
+      targets: [],      // computed "new par" per hole based on goal, same length as pars
+      scores: [],      // player's entered scores, null until entered
+      currentNine: 'front', // which nine is currently displayed on the scorecard screen
+    };
+
+    // The goal that was tapped on the goal selection screen (before confirmed)
+    let selectedGoal = null;
+
+    // Which nine is showing on the summary hole-by-hole breakdown
+    let summaryCurrentNine = 'front';
+
+
+    // ── NAVIGATION ──────────────────────────────────────────────────────────────
+
+    function navigateTo(screenId) {
+      document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
+      document.getElementById(screenId).classList.add('active');
+      window.scrollTo(0, 0);
+    }
+
+
+    // ── SETUP — ROUND TYPE SELECTION ────────────────────────────────────────────
+
+    function selectRoundType(type, element) {
+      gameState.roundType = type;
       const is18 = type === 18;
+
+      // Highlight selected option
+      document.querySelectorAll('.round-option').forEach(el => el.classList.remove('selected'));
+      element.classList.add('selected');
+
+      // Show or hide the "which nine?" picker — not needed for full 18
       document.getElementById('nine-picker-wrap').style.display = is18 ? 'none' : '';
+
+      // Show or hide back nine par inputs — only needed for full 18
       document.getElementById('back-nine-par-wrap').style.display = is18 ? '' : 'none';
+
+      // Update labels to match round type
       document.getElementById('par-label-front').textContent = is18 ? 'Par — Front Nine (Holes 1–9)' : 'Par for Each Hole';
       document.getElementById('setup-title').textContent = is18 ? 'Full 18 — Setup' : '9 Holes — Setup';
-      const lbl = is18 ? ['27/18', '17/18', '7/18'] : ['13/9', '8/9', '3/9'];
-      document.getElementById('badge-100').textContent = '+' + lbl[0];
-      document.getElementById('badge-90').textContent = '+' + lbl[1];
-      document.getElementById('badge-80').textContent = '+' + lbl[2];
-      buildParGrid(); goTo('screen-setup');
+
+      // Update goal badges with the correct over-par budget for this round type
+      const badgeLabels = is18 ? ['27/18', '17/18', '7/18'] : ['13/9', '8/9', '3/9'];
+      document.getElementById('badge-100').textContent = '+' + badgeLabels[0];
+      document.getElementById('badge-90').textContent = '+' + badgeLabels[1];
+      document.getElementById('badge-80').textContent = '+' + badgeLabels[2];
+
+      buildParGrid();
+      navigateTo('screen-setup');
     }
 
+
+    // ── SETUP — PAR GRID ────────────────────────────────────────────────────────
+
+    // Rebuilds the par dropdowns based on which nine is selected (for 9-hole rounds)
     function buildParGrid() {
-      const nine = document.getElementById('nine-select').value;
-      buildGrid('par-grid-front', S.roundType === 9 ? (nine === 'front' ? 1 : 10) : 1, 9);
-      if (S.roundType === 18) buildGrid('par-grid-back', 10, 9);
-    }
-
-    function buildGrid(id, start, n) {
-      const g = document.getElementById(id); if (!g) return; g.innerHTML = '';
-      for (let i = 0; i < n; i++) {
-        const h = start + i, w = document.createElement('div'); w.className = 'hole-input-wrap';
-        w.innerHTML = `<span>H${h}</span><select id="par-h${h}"><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option></select>`;
-        g.appendChild(w);
+      const nineChoice = document.getElementById('nine-select').value;
+      const frontStart = gameState.roundType === 9 ? (nineChoice === 'front' ? 1 : 10) : 1;
+      buildParGridSection('par-grid-front', frontStart, 9);
+      if (gameState.roundType === 18) {
+        buildParGridSection('par-grid-back', 10, 9);
       }
     }
-    buildGrid('par-grid-front', 1, 9); buildGrid('par-grid-back', 10, 9);
 
-    function goToGoal() {
-      S.course = document.getElementById('course-name').value || 'The Course';
-      if (S.roundType === 9) {
-        S.nineChoice = document.getElementById('nine-select').value;
-        const st = S.nineChoice === 'front' ? 1 : 10;
-        S.pars = Array.from({ length: 9 }, (_, i) => parseInt(document.getElementById(`par-h${st + i}`).value));
+    // Builds a single row of par dropdowns starting at a given hole number
+    function buildParGridSection(gridId, startHole, holeCount) {
+      const grid = document.getElementById(gridId);
+      if (!grid) return;
+      grid.innerHTML = '';
+      for (let i = 0; i < holeCount; i++) {
+        const holeNumber = startHole + i;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'hole-input-wrap';
+        wrapper.innerHTML = `
+      <span>H${holeNumber}</span>
+      <select id="par-h${holeNumber}">
+        <option value="3">3</option>
+        <option value="4" selected>4</option>
+        <option value="5">5</option>
+      </select>`;
+        grid.appendChild(wrapper);
+      }
+    }
+
+    // Build both grids on initial load
+    buildParGridSection('par-grid-front', 1, 9);
+    buildParGridSection('par-grid-back', 10, 9);
+
+    // Check for an unfinished round from a previous session
+    checkForSavedRound();
+
+
+    // ── SETUP — READ PARS AND GO TO GOAL SCREEN ─────────────────────────────────
+
+    function goToGoalScreen() {
+      gameState.courseName = document.getElementById('course-name').value || 'The Course';
+
+      if (gameState.roundType === 9) {
+        // Read which nine the player chose and collect its 9 pars
+        gameState.nineChoice = document.getElementById('nine-select').value;
+        const startHole = gameState.nineChoice === 'front' ? 1 : 10;
+        gameState.pars = Array.from({ length: 9 }, (_, i) =>
+          parseInt(document.getElementById(`par-h${startHole + i}`).value)
+        );
       } else {
-        S.pars = Array.from({ length: 18 }, (_, i) => parseInt(document.getElementById(`par-h${i + 1}`).value));
+        // Full 18 — read all 18 pars
+        gameState.pars = Array.from({ length: 18 }, (_, i) =>
+          parseInt(document.getElementById(`par-h${i + 1}`).value)
+        );
       }
-      goTo('screen-goal');
+
+      navigateTo('screen-goal');
     }
 
-    let selGoal = null;
-    function selectGoal(g, el) { document.querySelectorAll('.goal-card').forEach(c => c.classList.remove('selected')); el.classList.add('selected'); selGoal = g; }
 
-    function getOver() { const b18 = { 100: 27, 90: 17, 80: 7 }, b9 = { 100: 13, 90: 8, 80: 3 }; return S.roundType === 18 ? b18[S.goal] : b9[S.goal]; }
-    function getBudget() { return S.pars.reduce((a, b) => a + b, 0) + getOver(); }
-    function totalHoles() { return S.roundType; }
+    // ── GOAL SELECTION ───────────────────────────────────────────────────────────
 
+    function selectGoal(goal, element) {
+      document.querySelectorAll('.goal-card').forEach(card => card.classList.remove('selected'));
+      element.classList.add('selected');
+      selectedGoal = goal;
+    }
+
+
+    // ── BUDGET HELPERS ───────────────────────────────────────────────────────────
+
+    // How many strokes over par the player is allowed for their chosen goal
+    // Break 100 over 18 = +27 over par | over 9 = +13
+    // Break 90  over 18 = +17 over par | over 9 = +8
+    // Break 80  over 18 = +7  over par | over 9 = +3
+    function getStrokeBudgetOverPar() {
+      const budgets18 = { 100: 27, 90: 17, 80: 7 };
+      const budgets9 = { 100: 13, 90: 8, 80: 3 };
+      return gameState.roundType === 18 ? budgets18[gameState.goal] : budgets9[gameState.goal];
+    }
+
+    // Total stroke budget for the round = course par + allowed over-par strokes
+    function getTotalStrokeBudget() {
+      return gameState.pars.reduce((sum, par) => sum + par, 0) + getStrokeBudgetOverPar();
+    }
+
+    function getTotalHoles() {
+      return gameState.roundType;
+    }
+
+
+    // ── TARGET COMPUTATION ───────────────────────────────────────────────────────
+
+    // Distributes the over-par budget across holes to create a "new par" (target) for each hole.
+    // Strategy:
+    //   - Par 5s get double bogey first (75% of the time), otherwise bogey
+    //   - Par 4s can go up to double bogey
+    //   - Par 3s max out at bogey
+    //   - Holes are shuffled within each group so targets vary each round
     function computeTargets() {
-      const p = S.pars, t = [...p]; let rem = getOver();
-      const sh = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; } return a; };
-      const ord = [...sh(p.map((_, i) => i).filter(i => p[i] === 5)).map(i => ({ i, cap: Math.random() < 0.75 ? 2 : 1 })),
-      ...sh(p.map((_, i) => i).filter(i => p[i] === 4)).map(i => ({ i, cap: 2 })),
-      ...sh(p.map((_, i) => i).filter(i => p[i] === 3)).map(i => ({ i, cap: 1 }))];
-      let ch = true;
-      while (rem > 0 && ch) { ch = false; for (const { i, cap } of ord) { if (rem <= 0) break; if (t[i] - p[i] < cap) { t[i]++; rem--; ch = true; } } }
-      if (rem > 0) for (let i = 0; i < p.length && rem > 0; i++)if (t[i] - p[i] < 2) { t[i]++; rem--; }
-      S.targets = t;
+      const pars = gameState.pars;
+      const targets = [...pars]; // start everyone at real par
+      let remainingBudget = getStrokeBudgetOverPar();
+
+      // Fisher-Yates shuffle
+      const shuffle = arr => {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      };
+
+      // Get indices for each par group, shuffled for variety
+      const par5Indices = shuffle(pars.map((p, i) => i).filter(i => pars[i] === 5));
+      const par4Indices = shuffle(pars.map((p, i) => i).filter(i => pars[i] === 4));
+      const par3Indices = shuffle(pars.map((p, i) => i).filter(i => pars[i] === 3));
+
+      // Build priority order: par 5s first, then 4s, then 3s
+      // Par 5s get a cap of 2 (double bogey) 75% of the time, otherwise 1 (bogey)
+      const priorityOrder = [
+        ...par5Indices.map(i => ({ holeIndex: i, maxOver: Math.random() < 0.75 ? 2 : 1 })),
+        ...par4Indices.map(i => ({ holeIndex: i, maxOver: 2 })),
+        ...par3Indices.map(i => ({ holeIndex: i, maxOver: 1 })),
+      ];
+
+      // Distribute +1 strokes across holes in priority order until budget is used
+      let madeProgress = true;
+      while (remainingBudget > 0 && madeProgress) {
+        madeProgress = false;
+        for (const { holeIndex, maxOver } of priorityOrder) {
+          if (remainingBudget <= 0) break;
+          const currentOver = targets[holeIndex] - pars[holeIndex];
+          if (currentOver < maxOver) {
+            targets[holeIndex]++;
+            remainingBudget--;
+            madeProgress = true;
+          }
+        }
+      }
+
+      // Safety valve: if budget still remains, distribute on any hole under +2
+      if (remainingBudget > 0) {
+        for (let i = 0; i < pars.length && remainingBudget > 0; i++) {
+          if (targets[i] - pars[i] < 2) {
+            targets[i]++;
+            remainingBudget--;
+          }
+        }
+      }
+
+      gameState.targets = targets;
     }
+
+
+    // ── SCORECARD SCREEN SETUP ───────────────────────────────────────────────────
 
     function goToScorecard() {
-      if (!selGoal) { alert('Please select a goal.'); return; }
-      S.goal = selGoal; S.scores = new Array(totalHoles()).fill(null);
+      if (!selectedGoal) { alert('Please select a goal.'); return; }
+
+      gameState.goal = selectedGoal;
+      gameState.scores = new Array(getTotalHoles()).fill(null);
       computeTargets();
-      S.currentNine = S.roundType === 9 ? S.nineChoice : 'front';
-      const is18 = S.roundType === 18;
+
+      // For 9-hole rounds, currentNine is fixed to whichever nine was chosen
+      // For 18-hole rounds, always start on the front nine
+      gameState.currentNine = gameState.roundType === 9 ? gameState.nineChoice : 'front';
+
+      const is18 = gameState.roundType === 18;
+
+      // Show or hide the front/back nine tabs (only for full 18)
       document.getElementById('nine-tabs-wrap').style.display = is18 ? 'flex' : 'none';
-      document.getElementById('btn-switch-nine').style.display = is18 ? '' : 'none';
-      if (is18) { document.getElementById('tab-front').classList.add('active'); document.getElementById('tab-back').classList.remove('active'); document.getElementById('btn-switch-nine').textContent = 'Back Nine →'; }
-      document.getElementById('sc-title').textContent = S.course;
-      renderSC(); renderEntry(); updateLive(); goTo('screen-scorecard');
-    }
 
-    function off() { return S.roundType === 18 && S.currentNine === 'back' ? 9 : 0; }
-
-    function renderSC() {
-      const o = off(), is18 = S.roundType === 18;
-      const hs = is18 ? (S.currentNine === 'front' ? 1 : 10) : (S.nineChoice === 'front' ? 1 : 10);
-      const ps = S.pars.slice(o, o + 9), ts = S.targets.slice(o, o + 9);
-      document.getElementById('scorecard-table').innerHTML = `
-    <thead><tr><th>Hole</th>${Array.from({ length: 9 }, (_, i) => `<th>${hs + i}</th>`).join('')}<th>Tot</th></tr></thead>
-    <tbody>
-      <tr><td class="label-cell">Par</td>${ps.map(p => `<td>${p}</td>`).join('')}<td>${ps.reduce((a, b) => a + b, 0)}</td></tr>
-      <tr><td class="label-cell">Target</td>${ts.map(t => `<td style="color:var(--gold)">${t}</td>`).join('')}<td style="color:var(--gold)">${ts.reduce((a, b) => a + b, 0)}</td></tr>
-      <tr><td class="label-cell">Score</td>${Array.from({ length: 9 }, (_, i) => `<td id="sc-${o + i}">—</td>`).join('')}<td id="sc-tot">—</td></tr>
-      <tr><td class="label-cell">+/−</td>${Array.from({ length: 9 }, (_, i) => `<td id="vs-${o + i}">—</td>`).join('')}<td id="vs-tot">—</td></tr>
-    </tbody>`;
-      for (let i = o; i < o + 9; i++)updSC(i); updNineTot(o);
-    }
-
-    function renderEntry() {
-      const o = off(), is18 = S.roundType === 18;
-      const hs = is18 ? (S.currentNine === 'front' ? 1 : 10) : (S.nineChoice === 'front' ? 1 : 10);
-      const grid = document.getElementById('score-entry-grid');
-      grid.innerHTML = '';
-      grid.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:8px;';
-      document.getElementById('entry-title').textContent = is18 ? (S.currentNine === 'front' ? 'Front Nine — Scores' : 'Back Nine — Scores') : 'Enter Scores';
-      for (let i = o; i < o + 9; i++) {
-        const b = document.createElement('div'); b.className = 'hole-score-block';
-        b.innerHTML = `<div class="hole-label">Hole ${hs + (i - o)}</div>
-      <div class="par-label">New Par ${S.targets[i]}</div>
-      <div class="score-controls">
-        <button class="score-btn" onclick="chg(${i},-1)">−</button>
-        <div class="score-display" id="dp-${i}">—</div>
-        <button class="score-btn" onclick="chg(${i},1)">+</button>
-      </div>
-      <div class="score-rel" id="rl-${i}"></div>`;
-        grid.appendChild(b);
-        if (S.scores[i] !== null) updEntry(i);
+      // Show or hide the switch-nine footer button (only for full 18)
+      const switchBtn = document.getElementById('btn-switch-nine');
+      switchBtn.style.display = is18 ? '' : 'none';
+      if (is18) {
+        document.getElementById('tab-front').classList.add('active');
+        document.getElementById('tab-back').classList.remove('active');
+        switchBtn.textContent = 'Back Nine →';
       }
-      // No centering needed for single column
+
+      document.getElementById('sc-title').textContent = gameState.courseName;
+      renderScorecard();
+      renderScoreEntry();
+      updateLiveStats();
+      navigateTo('screen-scorecard');
+    }
+
+
+    // ── NINE SWITCHING ───────────────────────────────────────────────────────────
+
+    // Returns the array offset for the current nine (0 for front, 9 for back)
+    function getBackNineOffset() {
+      return gameState.roundType === 18 && gameState.currentNine === 'back' ? 9 : 0;
     }
 
     function switchNine(nine) {
-      S.currentNine = nine;
+      gameState.currentNine = nine;
       document.getElementById('tab-front').classList.toggle('active', nine === 'front');
       document.getElementById('tab-back').classList.toggle('active', nine === 'back');
       document.getElementById('btn-switch-nine').textContent = nine === 'front' ? 'Back Nine →' : '← Front Nine';
-      renderSC(); renderEntry();
-    }
-    function switchNineBtn() { switchNine(S.currentNine === 'front' ? 'back' : 'front'); window.scrollTo(0, 0); }
-
-    function chg(i, d) {
-      const c = S.scores[i];
-      S.scores[i] = Math.max(1, Math.min(15, c === null ? (d > 0 ? S.pars[i] : S.pars[i] - 1) : c + d));
-      updSC(i); updEntry(i); updNineTot(off()); updateLive();
-      // Bump animation on score number
-      const dp = document.getElementById(`dp-${i}`);
-      if (dp) { dp.classList.remove('bump'); void dp.offsetWidth; dp.classList.add('bump'); setTimeout(() => dp.classList.remove('bump'), 200); }
+      renderScorecard();
+      renderScoreEntry();
     }
 
-    function cls(s, p) { const d = s - p; if (d <= -2) return 'eagle'; if (d === -1) return 'birdie'; if (d === 0) return 'par-cell'; if (d === 1) return 'bogey'; if (d === 2) return 'double'; return 'triple-plus'; }
-    function dcls(s, t) { const d = s - t; if (d <= -2) return 'eagle-c'; if (d === -1) return 'birdie-c'; if (d === 0) return 'par-c'; if (d === 1) return 'bogey-c'; if (d === 2) return 'double-c'; return 'triple-c'; }
-    function rel(s, t) {
-      const d = s - t;
-      if (d <= -2) return { t: 'Eagle', c: 'var(--gold-lt)' };
-      if (d === -1) return { t: 'Birdie', c: 'var(--green-lt)' };
-      if (d === 0) return { t: 'On Target', c: 'var(--green-hi)' };
-      if (d === 1) return { t: '+1 Over', c: 'var(--gold)' };
-      if (d === 2) return { t: '+2 Over', c: 'var(--amber)' };
-      return { t: `+${d} Over`, c: 'var(--sienna)' };
+    // Footer button toggles between front and back nine
+    function switchNineFooterBtn() {
+      switchNine(gameState.currentNine === 'front' ? 'back' : 'front');
+      window.scrollTo(0, 0);
     }
 
-    function updSC(i) {
-      const sc = document.getElementById(`sc-${i}`), vs = document.getElementById(`vs-${i}`); if (!sc || !vs) return;
-      const s = S.scores[i];
-      if (s !== null) {
-        sc.textContent = s; sc.className = cls(s, S.pars[i]);
-        const d = s - S.targets[i];
-        vs.textContent = d === 0 ? '✓' : d > 0 ? `+${d}` : `${d}`;
-        vs.style.color = d > 0 ? 'var(--sienna)' : d < 0 ? 'var(--green-lt)' : 'var(--dim)';
-      } else { sc.textContent = '—'; sc.className = ''; vs.textContent = '—'; vs.style.color = ''; }
-    }
-    function updEntry(i) {
-      const dp = document.getElementById(`dp-${i}`), rl = document.getElementById(`rl-${i}`); if (!dp || !rl) return;
-      const s = S.scores[i];
-      if (s !== null) { dp.textContent = s; dp.className = `score-display ${dcls(s, S.targets[i])}`; const r = rel(s, S.targets[i]); rl.textContent = r.t; rl.style.color = r.c; }
-      else { dp.textContent = '—'; dp.className = 'score-display'; rl.textContent = ''; }
-    }
-    function updNineTot(o) {
-      const t = document.getElementById('sc-tot'), v = document.getElementById('vs-tot'); if (!t || !v) return;
-      const ns = S.scores.slice(o, o + 9).filter(s => s !== null);
-      if (ns.length) { const s = ns.reduce((a, b) => a + b, 0), p = S.pars.slice(o, o + 9).reduce((a, b) => a + b, 0); t.textContent = s; const d = s - p; v.textContent = d >= 0 ? `+${d}` : `${d}`; }
-      else { t.textContent = '—'; v.textContent = '—'; }
-    }
 
-    const tips = {
-      on: ["Aim for the fat of the green, not the flag. Protect this round.", "A bogey is a fine score. Keep playing smart.", "Note where trouble is — miss it to the safe side every hole.", "On par 5s, three solid shots beat two risky ones every time.", "Pick a landing zone off the tee, not a target line.", "Leave the ball below the hole. Uphill putts only.", "Between clubs? Take more club and commit.", "Play the course in front of you, not the one in your head.", "Chip out from trees. One stroke beats three.", "Never aim at a flag tucked tight behind a bunker."],
-      sw: ["Stop aiming at flags. Pick a spot away from trouble.", "Lay up to your favourite yardage. Control beats distance.", "Water left? Aim right. Use the whole fairway.", "Bogey from the middle of the green beats double from a hero shot.", "3-wood off the tee beats a driver in the rough.", "Avoid the 3-putt. Lag it close.", "Chip out from rough. Never hero it.", "If you doubt the shot, don't play it.", "Play to the open side of the green.", "Check you can clear the hazard. If not, lay up."],
-      ps: ["Don't make up shots in one swing. One hole at a time.", "Get the ball back in play first. Period.", "Bogey from a chip-out is a win right now.", "A double is fine. Two in a row kills rounds — reset now.", "Take the bunker out of play, even if it means laying up.", "Find the widest part of the fairway and aim there.", "Forget the flag — play to the biggest part of the green.", "Slow down. Bad decisions come from rushing.", "Walk off with a double, not worse.", "From rough or trouble: advance and escape. Nothing more."]
-    };
-    const rand = a => a[Math.floor(Math.random() * a.length)];
+    // ── SCORECARD TABLE RENDERING ────────────────────────────────────────────────
 
-    function updateLive() {
-      const bud = getBudget(), ent = S.scores.filter(s => s !== null), hp = ent.length, sc = ent.reduce((a, b) => a + b, 0);
-      const tgt = S.targets.slice(0, hp).reduce((a, b) => a + b, 0);
-      const hl = totalHoles() - hp, head = bud - sc - S.pars.slice(hp).reduce((a, b) => a + b, 0), ov = sc - tgt;
-      let st = 'on-track', ti = 'On Track', ic = '🌿', tp = '';
-      if (hp === 0) { tp = `Budget: ${bud} strokes (${getOver()} over par). One shot at a time.`; }
-      else if (ov <= 0) { st = 'on-track'; ic = '🌿'; ti = 'On Track'; tp = rand(tips.on); }
-      else if (ov <= 4) { st = 'swing-easy'; ic = '🍂'; ti = 'Swing Easy'; tp = rand(tips.sw); }
-      else { st = 'play-safe'; ic = '🦌'; ti = 'Play Safe'; tp = rand(tips.ps); }
-      let proj = '—', pc = 'var(--gold-lt)';
-      if (hp > 0) { proj = Math.round(sc + (sc / hp) * hl); pc = proj < bud ? 'var(--green-lt)' : 'var(--sienna)'; }
-      document.getElementById('status-bar-wrap').innerHTML = `<div class="status-bar ${st}"><div class="status-icon">${ic}</div><div class="status-text"><h3>${ti}</h3><p>${hp === 0 ? `Goal: Break ${S.goal}` : `${hp} of ${totalHoles()} holes played`}</p></div></div>`;
-      document.getElementById('stats-row').innerHTML = `
-    <div class="stat-box"><div class="val">${hp > 0 ? sc : '—'}</div><div class="lbl">Score</div></div>
-    <div class="stat-box"><div class="val" style="color:${head >= 0 ? 'var(--green-lt)' : 'var(--sienna)'}">${hp > 0 ? (head >= 0 ? '+' + head : head) : '—'}</div><div class="lbl">Headroom</div></div>
-    <div class="stat-box"><div class="val" style="color:${pc}">${proj}</div><div class="lbl">Projected</div></div>`;
-      document.getElementById('tip-box-wrap').innerHTML = `<div class="tip-box"><strong>⛳ Caddie</strong>${tp}</div>`;
-    }
+    function renderScorecard() {
+      const offset = getBackNineOffset();
+      const is18 = gameState.roundType === 18;
 
-    function finishRound() {
-      const miss = [];
-      S.scores.forEach((s, i) => { if (s === null) { const h = S.roundType === 18 ? i + 1 : (S.nineChoice === 'front' ? i + 1 : i + 10); miss.push(h); } });
-      if (miss.length) { showMissing(miss); return; }
-      buildSum(); goTo('screen-summary');
+      // First hole number shown depends on which nine and whether it's a 9 or 18 hole round
+      const firstHoleNumber = is18
+        ? (gameState.currentNine === 'front' ? 1 : 10)
+        : (gameState.nineChoice === 'front' ? 1 : 10);
+
+      const ninePars = gameState.pars.slice(offset, offset + 9);
+      const nineTargets = gameState.targets.slice(offset, offset + 9);
+      const parTotal = ninePars.reduce((sum, p) => sum + p, 0);
+      const targetTotal = nineTargets.reduce((sum, t) => sum + t, 0);
+
+      document.getElementById('scorecard-table').innerHTML = `
+    <thead>
+      <tr>
+        <th>Hole</th>
+        ${Array.from({ length: 9 }, (_, i) => `<th>${firstHoleNumber + i}</th>`).join('')}
+        <th>Tot</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="label-cell">Par</td>
+        ${ninePars.map(p => `<td>${p}</td>`).join('')}
+        <td>${parTotal}</td>
+      </tr>
+      <tr>
+        <td class="label-cell">New Par</td>
+        ${nineTargets.map(t => `<td style="color:var(--gold)">${t}</td>`).join('')}
+        <td style="color:var(--gold)">${targetTotal}</td>
+      </tr>
+      <tr>
+        <td class="label-cell">Score</td>
+        ${Array.from({ length: 9 }, (_, i) => `<td id="sc-${offset + i}">—</td>`).join('')}
+        <td id="sc-tot">—</td>
+      </tr>
+      <tr>
+        <td class="label-cell">+/−</td>
+        ${Array.from({ length: 9 }, (_, i) => `<td id="vs-${offset + i}">—</td>`).join('')}
+        <td id="vs-tot">—</td>
+      </tr>
+    </tbody>`;
+
+      // Re-populate any scores already entered
+      for (let i = offset; i < offset + 9; i++) updateScorecardCell(i);
+      updateNineTotal(offset);
     }
 
-    function showMissing(miss) {
-      const ex = document.getElementById('mp'); if (ex) ex.remove();
-      const o = document.createElement('div'); o.id = 'mp'; o.className = 'popup-overlay';
-      o.innerHTML = `<div class="popup-box"><div class="popup-title">Missing Scores</div><div class="popup-body">These holes have no score:<br><span>${miss.map(h => `Hole ${h}`).join(', ')}</span></div><div class="popup-btns"><button class="btn btn-warn" onclick="closeMissOk()">Finish Anyway</button><button class="btn btn-gold" onclick="closeMiss()">Go Back</button></div></div>`;
-      document.body.appendChild(o);
-    }
-    function closeMiss() { const p = document.getElementById('mp'); if (p) p.remove(); }
-    function closeMissOk() { closeMiss(); buildSum(); goTo('screen-summary'); }
 
-    let sumNine = 'front';
-    function switchSumNine(nine) { sumNine = nine; document.getElementById('sum-tab-front').classList.toggle('active', nine === 'front'); document.getElementById('sum-tab-back').classList.toggle('active', nine === 'back'); renderSumHoles(); }
+    // ── SCORE ENTRY BLOCKS RENDERING ────────────────────────────────────────────
 
-    function buildSum() {
-      const tot = S.scores.filter(s => s !== null).reduce((a, b) => a + b, 0), bud = getBudget(), par = S.pars.reduce((a, b) => a + b, 0), vt = tot - bud, sc = S.scores.filter(s => s !== null).length, is18 = S.roundType === 18;
-      document.getElementById('sum-title').textContent = S.course;
-      document.getElementById('sum-score').textContent = tot || '—';
-      document.getElementById('sum-course').textContent = `${S.course} · Break ${S.goal}`;
-      let vd = '', vc = 'var(--cream)';
-      if (sc === 0) { vd = 'No scores entered.'; vc = 'var(--dim)'; }
-      else if (vt <= -5) { vd = 'Outstanding — you smashed your goal.'; vc = 'var(--gold-lt)'; }
-      else if (vt < 0) { vd = 'Goal achieved. Smart golf wins.'; vc = 'var(--green-lt)'; }
-      else if (vt <= 4) { vd = 'So close. A little more patience next time.'; vc = 'var(--gold)'; }
-      else { vd = 'Every round makes you better. Keep at it.'; vc = 'var(--dim)'; }
-      document.getElementById('sum-verdict').textContent = vd; document.getElementById('sum-verdict').style.color = vc;
-      let ea = 0, bi = 0, pa = 0, bo = 0, db = 0, tr = 0;
-      S.scores.forEach((s, i) => { if (s === null) return; const d = s - S.pars[i]; if (d <= -2) ea++; else if (d === -1) bi++; else if (d === 0) pa++; else if (d === 1) bo++; else if (d === 2) db++; else tr++; });
-      document.getElementById('sum-grid').innerHTML = `
-    <div class="sum-stat"><div class="sv" style="color:var(--gold-lt)">${ea + bi}</div><div class="sl">Eagles/Birdies</div></div>
-    <div class="sum-stat"><div class="sv" style="color:var(--green-lt)">${pa}</div><div class="sl">Pars</div></div>
-    <div class="sum-stat"><div class="sv" style="color:var(--gold)">${bo}</div><div class="sl">Bogeys</div></div>
-    <div class="sum-stat"><div class="sv" style="color:var(--amber)">${db}</div><div class="sl">Doubles</div></div>
-    <div class="sum-stat"><div class="sv" style="color:var(--sienna)">${tr}</div><div class="sl">Triple+</div></div>
-    <div class="sum-stat"><div class="sv">${par}</div><div class="sl">Course Par</div></div>`;
-      document.getElementById('sum-nine-tabs-wrap').style.display = is18 ? 'flex' : 'none';
-      sumNine = 'front'; if (is18) { document.getElementById('sum-tab-front').classList.add('active'); document.getElementById('sum-tab-back').classList.remove('active'); }
-      renderSumHoles();
-    }
+    function renderScoreEntry() {
+      const offset = getBackNineOffset();
+      const is18 = gameState.roundType === 18;
+      const firstHoleNumber = is18
+        ? (gameState.currentNine === 'front' ? 1 : 10)
+        : (gameState.nineChoice === 'front' ? 1 : 10);
 
-    function renderSumHoles() {
-      const is18 = S.roundType === 18, st = is18 ? (sumNine === 'front' ? 0 : 9) : 0, hs = is18 ? (sumNine === 'front' ? 1 : 10) : (S.nineChoice === 'front' ? 1 : 10);
-      const bkd = document.getElementById('hole-breakdown'); bkd.innerHTML = '';
-      for (let i = st; i < st + 9; i++) {
-        const cell = document.createElement('div'); cell.className = 'hb-cell';
-        const s = S.scores[i], t = S.targets[i];
-        if (s !== null) {
-          const d = s - t, sc = d <= 0 ? 'var(--green-lt)' : d === 1 ? 'var(--gold)' : 'var(--sienna)', rl = d < 0 ? `${Math.abs(d)} Under` : d === 0 ? 'On Tgt' : d === 1 ? '+1 Over' : `+${d} Over`, rc = d <= 0 ? 'var(--green-hi)' : d === 1 ? 'var(--gold)' : 'var(--sienna)';
-          cell.innerHTML = `<div class="hn">H${hs + (i - st)} · T${t}</div><div class="hs" style="color:${sc}">${s}</div><div class="hr" style="color:${rc}">${rl}</div>`;
-        } else {
-          cell.innerHTML = `<div class="hn">H${hs + (i - st)} · T${t}</div><div class="hs" style="color:var(--faint)">—</div><div class="hr"></div>`;
-        }
-        bkd.appendChild(cell);
+      const grid = document.getElementById('score-entry-grid');
+      grid.innerHTML = '';
+      grid.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:8px;';
+
+      document.getElementById('entry-title').textContent = is18
+        ? (gameState.currentNine === 'front' ? 'Front Nine — Scores' : 'Back Nine — Scores')
+        : 'Enter Scores';
+
+      for (let i = offset; i < offset + 9; i++) {
+        const holeNumber = firstHoleNumber + (i - offset);
+        const block = document.createElement('div');
+        block.className = 'hole-score-block';
+        block.innerHTML = `
+      <div class="hole-label">Hole ${holeNumber}</div>
+      <div class="par-label">New Par ${gameState.targets[i]}</div>
+      <div class="score-controls">
+        <button class="score-btn" onclick="handleScoreChange(${i}, -1)">−</button>
+        <div class="score-display" id="dp-${i}">—</div>
+        <button class="score-btn" onclick="handleScoreChange(${i}, 1)">+</button>
+      </div>
+      <div class="score-rel" id="rl-${i}"></div>`;
+        grid.appendChild(block);
+
+        // Restore any score already entered (e.g. after switching nines)
+        if (gameState.scores[i] !== null) updateScoreEntryBlock(i);
       }
     }
 
-    function saveScreenshot() {
-      const nav = document.querySelector('#screen-summary .footer-nav'); nav.style.display = 'none';
-      html2canvas(document.getElementById('screen-summary'), { backgroundColor: '#0A0F0A', scale: 2, useCORS: true, scrollY: -window.scrollY }).then(c => {
-        nav.style.display = 'flex'; const l = document.createElement('a'), d = new Date();
-        l.download = `${(S.course || 'Lodge').replace(/\s+/g, '-')}-${d.getMonth() + 1}-${d.getDate()}-${d.getFullYear()}.png`;
-        l.href = c.toDataURL('image/png'); l.click();
-      }).catch(() => { nav.style.display = 'flex'; alert('Screenshot failed.'); });
+
+    // ── SCORE ENTRY INTERACTION ──────────────────────────────────────────────────
+
+    function handleScoreChange(holeIndex, delta) {
+      const currentScore = gameState.scores[holeIndex];
+      const par = gameState.pars[holeIndex];
+
+      // If no score yet, first tap of + starts at par, first tap of - starts at par - 1
+      const newScore = currentScore === null
+        ? (delta > 0 ? par : par - 1)
+        : currentScore + delta;
+
+      gameState.scores[holeIndex] = Math.max(1, Math.min(15, newScore));
+
+      updateScorecardCell(holeIndex);
+      updateScoreEntryBlock(holeIndex);
+      updateNineTotal(getBackNineOffset());
+      updateLiveStats();
+      saveSessionProgress();
+
+      // Spring-bump animation on the score number when it changes
+      const scoreDisplay = document.getElementById(`dp-${holeIndex}`);
+      if (scoreDisplay) {
+        scoreDisplay.classList.remove('bump');
+        void scoreDisplay.offsetWidth; // force reflow to restart animation
+        scoreDisplay.classList.add('bump');
+        setTimeout(() => scoreDisplay.classList.remove('bump'), 200);
+      }
     }
 
-    function resetAll() {
-      selGoal = null; S.scores = []; S.pars = []; S.targets = []; S.goal = null;
-      document.getElementById('course-name').value = '';
-      document.querySelectorAll('.goal-card,.round-option').forEach(c => c.classList.remove('selected'));
-      buildGrid('par-grid-front', 1, 9); buildGrid('par-grid-back', 10, 9);
-      goTo('screen-round-type');
+
+    // ── SCORE CLASSIFICATION HELPERS ────────────────────────────────────────────
+
+    // Returns the CSS class for a scorecard table cell based on score vs real par
+    function getScoreCellClass(score, par) {
+      const diff = score - par;
+      if (diff <= -2) return 'eagle';
+      if (diff === -1) return 'birdie';
+      if (diff === 0) return 'par-cell';
+      if (diff === 1) return 'bogey';
+      if (diff === 2) return 'double';
+      return 'triple-plus';
     }
+
+    // Returns the CSS class for the large score display number based on score vs target
+    function getScoreDisplayClass(score, target) {
+      const diff = score - target;
+      if (diff <= -2) return 'eagle-c';
+      if (diff === -1) return 'birdie-c';
+      if (diff === 0) return 'par-c';
+      if (diff === 1) return 'bogey-c';
+      if (diff === 2) return 'double-c';
+      return 'triple-c';
+    }
+
+    // Returns label text and color for the score relative to the target
+    function getScoreRelativeLabel(score, target) {
+      const diff = score - target;
+      if (diff <= -2) return { text: 'Eagle', color: 'var(--gold-lt)' };
+      if (diff === -1) return { text: 'Birdie', color: 'var(--green-lt)' };
+      if (diff === 0) return { text: 'On Target', color: 'var(--green-hi)' };
+      if (diff === 1) return { text: '+1 Over', color: 'var(--gold)' };
+      if (diff === 2) return { text: '+2 Over', color: 'var(--amber)' };
+      return { text: `+${diff} Over`, color: 'var(--sienna)' };
+    }
+
+
+    // ── DOM UPDATE HELPERS ───────────────────────────────────────────────────────
+
+    // Updates a single cell in the scorecard table for the given hole index
+    function updateScorecardCell(holeIndex) {
+      const scoreCell = document.getElementById(`sc-${holeIndex}`);
+      const vsCell = document.getElementById(`vs-${holeIndex}`);
+      if (!scoreCell || !vsCell) return;
+
+      const score = gameState.scores[holeIndex];
+      const par = gameState.pars[holeIndex];
+      const target = gameState.targets[holeIndex];
+
+      if (score !== null) {
+        scoreCell.textContent = score;
+        scoreCell.className = getScoreCellClass(score, par);
+        const diff = score - target;
+        vsCell.textContent = diff === 0 ? '✓' : diff > 0 ? `+${diff}` : `${diff}`;
+        vsCell.style.color = diff > 0 ? 'var(--sienna)' : diff < 0 ? 'var(--green-lt)' : 'var(--dim)';
+      } else {
+        scoreCell.textContent = '—';
+        scoreCell.className = '';
+        vsCell.textContent = '—';
+        vsCell.style.color = '';
+      }
+    }
+
+    // Updates the large score number and relative label in the entry block
+    function updateScoreEntryBlock(holeIndex) {
+      const scoreDisplay = document.getElementById(`dp-${holeIndex}`);
+      const relativeLabel = document.getElementById(`rl-${holeIndex}`);
+      if (!scoreDisplay || !relativeLabel) return;
+
+      const score = gameState.scores[holeIndex];
+      const target = gameState.targets[holeIndex];
+
+      if (score !== null) {
+        scoreDisplay.textContent = score;
+        scoreDisplay.className = `score-display ${getScoreDisplayClass(score, target)}`;
+        const label = getScoreRelativeLabel(score, target);
+        relativeLabel.textContent = label.text;
+        relativeLabel.style.color = label.color;
+      } else {
+        scoreDisplay.textContent = '—';
+        scoreDisplay.className = 'score-display';
+        relativeLabel.textContent = '';
+      }
+    }
+
+    // Updates the nine total cells at the end of the scorecard rows
+    function updateNineTotal(offset) {
+      const totalCell = document.getElementById('sc-tot');
+      const vsTotal = document.getElementById('vs-tot');
+      if (!totalCell || !vsTotal) return;
+
+      const nineScores = gameState.scores.slice(offset, offset + 9).filter(s => s !== null);
+      if (nineScores.length > 0) {
+        const scoreSum = nineScores.reduce((sum, s) => sum + s, 0);
+        const parSum = gameState.pars.slice(offset, offset + 9).reduce((sum, p) => sum + p, 0);
+        totalCell.textContent = scoreSum;
+        const diff = scoreSum - parSum;
+        vsTotal.textContent = diff >= 0 ? `+${diff}` : `${diff}`;
+      } else {
+        totalCell.textContent = '—';
+        vsTotal.textContent = '—';
+      }
+    }
+
+
+    // ── CADDIE TIPS ──────────────────────────────────────────────────────────────
+
+    const caddleTips = {
+      onTrack: [
+        "Aim for the fat of the green, not the flag. Protect this round.",
+        "A bogey is a fine score. Keep playing smart.",
+        "Note where trouble is — miss it to the safe side every hole.",
+        "On par 5s, three solid shots beat two risky ones every time.",
+        "Pick a landing zone off the tee, not a target line.",
+        "Leave the ball below the hole. Uphill putts only.",
+        "Between clubs? Take more club and commit.",
+        "Play the course in front of you, not the one in your head.",
+        "Chip out from trees. One stroke beats three.",
+        "Never aim at a flag tucked tight behind a bunker.",
+      ],
+      swingEasy: [
+        "Stop aiming at flags. Pick a spot away from trouble.",
+        "Lay up to your favourite yardage. Control beats distance.",
+        "Water left? Aim right. Use the whole fairway.",
+        "Bogey from the middle of the green beats double from a hero shot.",
+        "3-wood off the tee beats a driver in the rough.",
+        "Avoid the 3-putt. Lag it close.",
+        "Chip out from rough. Never hero it.",
+        "If you doubt the shot, don't play it.",
+        "Play to the open side of the green.",
+        "Check you can clear the hazard. If not, lay up.",
+      ],
+      playSafe: [
+        "Don't make up shots in one swing. One hole at a time.",
+        "Get the ball back in play first. Period.",
+        "Bogey from a chip-out is a win right now.",
+        "A double is fine. Two in a row kills rounds — reset now.",
+        "Take the bunker out of play, even if it means laying up.",
+        "Find the widest part of the fairway and aim there.",
+        "Forget the flag — play to the biggest part of the green.",
+        "Slow down. Bad decisions come from rushing.",
+        "Walk off with a double, not worse.",
+        "From rough or trouble: advance and escape. Nothing more.",
+      ],
+    };
+
+    function getRandomTip(tipArray) {
+      return tipArray[Math.floor(Math.random() * tipArray.length)];
+    }
+
+
+    // ── LIVE STATS UPDATE ────────────────────────────────────────────────────────
+
+    // Called after every score change — updates status bar, stats row, and caddie tip
+    function updateLiveStats() {
+      const totalBudget = getTotalStrokeBudget();
+      const enteredScores = gameState.scores.filter(s => s !== null);
+      const holesPlayed = enteredScores.length;
+      const scoreSoFar = enteredScores.reduce((sum, s) => sum + s, 0);
+      const targetSoFar = gameState.targets.slice(0, holesPlayed).reduce((sum, t) => sum + t, 0);
+      const holesRemaining = getTotalHoles() - holesPlayed;
+      const remainingPar = gameState.pars.slice(holesPlayed).reduce((sum, p) => sum + p, 0);
+      const headroom = totalBudget - scoreSoFar - remainingPar; // strokes over par still available
+      const overUnder = scoreSoFar - targetSoFar; // how far ahead/behind the target pace
+
+      // Determine status: on track, swing easy, or play safe
+      let statusClass = 'on-track';
+      let statusTitle = 'On Track';
+      let statusIcon = '🌿';
+      let caddleTip = '';
+
+      if (holesPlayed === 0) {
+        caddleTip = `Budget: ${totalBudget} strokes (${getStrokeBudgetOverPar()} over par). One shot at a time.`;
+      } else if (overUnder <= 0) {
+        statusClass = 'on-track';
+        statusIcon = '🌿';
+        statusTitle = 'On Track';
+        caddleTip = getRandomTip(caddleTips.onTrack);
+      } else if (overUnder <= 4) {
+        statusClass = 'swing-easy';
+        statusIcon = '🍂';
+        statusTitle = 'Swing Easy';
+        caddleTip = getRandomTip(caddleTips.swingEasy);
+      } else {
+        statusClass = 'play-safe';
+        statusIcon = '🦌';
+        statusTitle = 'Play Safe';
+        caddleTip = getRandomTip(caddleTips.playSafe);
+      }
+
+      // Projected final score based on current pace
+      let projectedScore = '—';
+      let projectedColor = 'var(--gold-lt)';
+      if (holesPlayed > 0) {
+        projectedScore = Math.round(scoreSoFar + (scoreSoFar / holesPlayed) * holesRemaining);
+        projectedColor = projectedScore < totalBudget ? 'var(--green-lt)' : 'var(--sienna)';
+      }
+
+      // Render status bar
+      document.getElementById('status-bar-wrap').innerHTML = `
+    <div class="status-bar ${statusClass}">
+      <div class="status-icon">${statusIcon}</div>
+      <div class="status-text">
+        <h3>${statusTitle}</h3>
+        <p>${holesPlayed === 0 ? `Goal: Break ${gameState.goal}` : `${holesPlayed} of ${getTotalHoles()} holes played`}</p>
+      </div>
+    </div>`;
+
+      // Render stats row
+      document.getElementById('stats-row').innerHTML = `
+    <div class="stat-box">
+      <div class="val">${holesPlayed > 0 ? scoreSoFar : '—'}</div>
+      <div class="lbl">Score</div>
+    </div>
+    <div class="stat-box">
+      <div class="val" style="color:${headroom >= 0 ? 'var(--green-lt)' : 'var(--sienna)'}">
+        ${holesPlayed > 0 ? (headroom >= 0 ? '+' + headroom : headroom) : '—'}
+      </div>
+      <div class="lbl">Headroom</div>
+    </div>
+    <div class="stat-box">
+      <div class="val" style="color:${projectedColor}">${projectedScore}</div>
+      <div class="lbl">Projected</div>
+    </div>`;
+
+      // Render caddie tip
+      document.getElementById('tip-box-wrap').innerHTML = `
+    <div class="tip-box">
+      <strong>⛳ Caddie</strong>
+      ${caddleTip}
+    </div>`;
+    }
+
+
+    // ── FINISH ROUND ─────────────────────────────────────────────────────────────
+
+    function finishRound() {
+      // Find any holes with no score entered
+      const missingHoles = [];
+      gameState.scores.forEach((score, index) => {
+        if (score === null) {
+          // Determine the human-readable hole number
+          const holeNumber = gameState.roundType === 18
+            ? index + 1
+            : (gameState.nineChoice === 'front' ? index + 1 : index + 10);
+          missingHoles.push(holeNumber);
+        }
+      });
+
+      if (missingHoles.length > 0) {
+        showMissingScoresPopup(missingHoles);
+        return;
+      }
+
+      clearSessionProgress();
+      buildSummary();
+      navigateTo('screen-summary');
+    }
+
+
+    // ── MISSING SCORES POPUP ──────────────────────────────────────────────────────
+
+    function showMissingScoresPopup(missingHoles) {
+      const existing = document.getElementById('missing-popup');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'missing-popup';
+      overlay.className = 'popup-overlay';
+      overlay.innerHTML = `
+    <div class="popup-box">
+      <div class="popup-title">Missing Scores</div>
+      <div class="popup-body">
+        These holes have no score entered:<br>
+        <span>${missingHoles.map(h => `Hole ${h}`).join(', ')}</span>
+      </div>
+      <div class="popup-btns">
+        <button class="btn btn-warn" onclick="closeMissingPopupAndFinish()">Finish Anyway</button>
+        <button class="btn btn-gold" onclick="closeMissingPopup()">Go Back</button>
+      </div>
+    </div>`;
+      document.body.appendChild(overlay);
+    }
+
+    function closeMissingPopup() {
+      const popup = document.getElementById('missing-popup');
+      if (popup) popup.remove();
+    }
+
+    function closeMissingPopupAndFinish() {
+      closeMissingPopup();
+      buildSummary();
+      navigateTo('screen-summary');
+    }
+
+
+    // ── SUMMARY SCREEN ────────────────────────────────────────────────────────────
+
+    function switchSummaryNine(nine) {
+      summaryCurrentNine = nine;
+      document.getElementById('sum-tab-front').classList.toggle('active', nine === 'front');
+      document.getElementById('sum-tab-back').classList.toggle('active', nine === 'back');
+      renderSummaryHoles();
+    }
+
+    function buildSummary() {
+      const totalScore = gameState.scores.filter(s => s !== null).reduce((sum, s) => sum + s, 0);
+      const totalBudget = getTotalStrokeBudget();
+      const coursePar = gameState.pars.reduce((sum, p) => sum + p, 0);
+      const vsGoal = totalScore - totalBudget; // negative = beat goal
+      const holesScored = gameState.scores.filter(s => s !== null).length;
+      const is18 = gameState.roundType === 18;
+
+      document.getElementById('sum-title').textContent = gameState.courseName;
+      document.getElementById('sum-score').textContent = totalScore || '—';
+      document.getElementById('sum-course').textContent = `${gameState.courseName} · Break ${gameState.goal}`;
+
+      // Verdict message and color
+      let verdictText = '';
+      let verdictColor = 'var(--cream)';
+      if (holesScored === 0) {
+        verdictText = 'No scores entered.';
+        verdictColor = 'var(--dim)';
+      } else if (vsGoal <= -5) {
+        verdictText = 'Outstanding — you smashed your goal.';
+        verdictColor = 'var(--gold-lt)';
+      } else if (vsGoal < 0) {
+        verdictText = 'Goal achieved. Smart golf wins.';
+        verdictColor = 'var(--green-lt)';
+      } else if (vsGoal <= 4) {
+        verdictText = 'So close. A little more patience next time.';
+        verdictColor = 'var(--gold)';
+      } else {
+        verdictText = 'Every round makes you better. Keep at it.';
+        verdictColor = 'var(--dim)';
+      }
+      document.getElementById('sum-verdict').textContent = verdictText;
+      document.getElementById('sum-verdict').style.color = verdictColor;
+
+      // Count score types
+      let eagles = 0, birdies = 0, pars = 0, bogeys = 0, doubles = 0, triples = 0;
+      gameState.scores.forEach((score, index) => {
+        if (score === null) return;
+        const diff = score - gameState.pars[index];
+        if (diff <= -2) eagles++;
+        else if (diff === -1) birdies++;
+        else if (diff === 0) pars++;
+        else if (diff === 1) bogeys++;
+        else if (diff === 2) doubles++;
+        else triples++;
+      });
+
+      document.getElementById('sum-grid').innerHTML = `
+    <div class="sum-stat"><div class="sv" style="color:var(--gold-lt)">${eagles + birdies}</div><div class="sl">Eagles/Birdies</div></div>
+    <div class="sum-stat"><div class="sv" style="color:var(--green-lt)">${pars}</div><div class="sl">Pars</div></div>
+    <div class="sum-stat"><div class="sv" style="color:var(--gold)">${bogeys}</div><div class="sl">Bogeys</div></div>
+    <div class="sum-stat"><div class="sv" style="color:var(--amber)">${doubles}</div><div class="sl">Doubles</div></div>
+    <div class="sum-stat"><div class="sv" style="color:var(--sienna)">${triples}</div><div class="sl">Triple+</div></div>
+    <div class="sum-stat"><div class="sv">${coursePar}</div><div class="sl">Course Par</div></div>`;
+
+      // Show nine tabs on summary only for full 18
+      document.getElementById('sum-nine-tabs-wrap').style.display = is18 ? 'flex' : 'none';
+      summaryCurrentNine = 'front';
+      if (is18) {
+        document.getElementById('sum-tab-front').classList.add('active');
+        document.getElementById('sum-tab-back').classList.remove('active');
+      }
+
+      renderSummaryHoles();
+    }
+
+    function renderSummaryHoles() {
+      const is18 = gameState.roundType === 18;
+      const startIndex = is18 ? (summaryCurrentNine === 'front' ? 0 : 9) : 0;
+      const firstHoleNum = is18 ? (summaryCurrentNine === 'front' ? 1 : 10) : (gameState.nineChoice === 'front' ? 1 : 10);
+
+      const container = document.getElementById('hole-breakdown');
+      container.innerHTML = '';
+
+      for (let i = startIndex; i < startIndex + 9; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'hb-cell';
+
+        const score = gameState.scores[i];
+        const target = gameState.targets[i];
+        const holeNumber = firstHoleNum + (i - startIndex);
+
+        if (score !== null) {
+          const diff = score - target;
+          const scoreColor = diff <= 0 ? 'var(--green-lt)' : diff === 1 ? 'var(--gold)' : 'var(--sienna)';
+          const labelText = diff < 0 ? `${Math.abs(diff)} Under` : diff === 0 ? 'On Tgt' : diff === 1 ? '+1 Over' : `+${diff} Over`;
+          const labelColor = diff <= 0 ? 'var(--green-hi)' : diff === 1 ? 'var(--gold)' : 'var(--sienna)';
+          cell.innerHTML = `
+        <div class="hn">H${holeNumber} · T${target}</div>
+        <div class="hs" style="color:${scoreColor}">${score}</div>
+        <div class="hr" style="color:${labelColor}">${labelText}</div>`;
+        } else {
+          cell.innerHTML = `
+        <div class="hn">H${holeNumber} · T${target}</div>
+        <div class="hs" style="color:var(--faint)">—</div>
+        <div class="hr"></div>`;
+        }
+
+        container.appendChild(cell);
+      }
+    }
+
+
+    // ── SCREENSHOT ───────────────────────────────────────────────────────────────
+
+    function saveScreenshot() {
+      const footerNav = document.querySelector('#screen-summary .footer-nav');
+      footerNav.style.display = 'none'; // hide buttons so they don't appear in the image
+
+      html2canvas(document.getElementById('screen-summary'), {
+        backgroundColor: '#0A0F0A',
+        scale: 2,
+        useCORS: true,
+        scrollY: -window.scrollY,
+      }).then(canvas => {
+        footerNav.style.display = 'flex';
+        const link = document.createElement('a');
+        const date = new Date();
+        const fileName = `${(gameState.courseName || 'Lodge').replace(/\s+/g, '-')}-${date.getMonth() + 1}-${date.getDate()}-${date.getFullYear()}.png`;
+        link.download = fileName;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }).catch(() => {
+        footerNav.style.display = 'flex';
+        alert('Screenshot failed. Try again.');
+      });
+    }
+
+
+    // ── SESSION PERSISTENCE ───────────────────────────────────────────────────────
+    // Saves the full game state to sessionStorage after every score change.
+    // On page load, checks if an unfinished round exists and offers to restore it.
+
+    // Call this after any meaningful state change
+    function saveSessionProgress() {
+      const hasProgress = gameState.scores.some(s => s !== null);
+      if (!hasProgress) {
+        sessionStorage.removeItem(SESSION_KEY);
+        console.log('[Lodge] No progress to save — cleared session.');
+        return;
+      }
+      try {
+        const payload = JSON.stringify({
+          roundType: gameState.roundType,
+          nineChoice: gameState.nineChoice,
+          courseName: gameState.courseName,
+          goal: gameState.goal,
+          pars: gameState.pars,
+          targets: gameState.targets,
+          scores: gameState.scores,
+          currentNine: gameState.currentNine,
+        });
+        sessionStorage.setItem(SESSION_KEY, payload);
+        console.log('[Lodge] Progress saved:', payload);
+      } catch (e) {
+        console.error('[Lodge] Failed to save progress:', e);
+      }
+    }
+
+    // Clears saved progress (call on reset or after summary)
+    function clearSessionProgress() {
+      try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { }
+    }
+
+    // On load: check for a saved round and offer to restore it
+    function checkForSavedRound() {
+      let saved;
+      try {
+        const raw = sessionStorage.getItem(SESSION_KEY);
+        console.log('[Lodge] Checking for saved round:', raw);
+        if (!raw) return;
+        saved = JSON.parse(raw);
+      } catch (e) {
+        console.error('[Lodge] Failed to read saved round:', e);
+        return;
+      }
+
+      if (!saved || !saved.scores || !saved.scores.some(s => s !== null)) return;
+
+      // Show restore popup
+      const overlay = document.createElement('div');
+      overlay.id = 'restore-popup';
+      overlay.className = 'popup-overlay';
+      const holesPlayed = saved.scores.filter(s => s !== null).length;
+      const scoreSoFar = saved.scores.filter(s => s !== null).reduce((a, b) => a + b, 0);
+      overlay.innerHTML = `
+    <div class="popup-box">
+      <div class="popup-title">Unfinished Round</div>
+      <div class="popup-body">
+        You have an unfinished round at <span>${saved.courseName}</span>.<br><br>
+        Goal: <span>Break ${saved.goal}</span> &nbsp;·&nbsp;
+        Holes played: <span>${holesPlayed}</span> &nbsp;·&nbsp;
+        Score so far: <span>${scoreSoFar}</span>
+      </div>
+      <div class="popup-btns">
+        <button class="btn btn-gold" onclick="restoreSavedRound()">Pick Up Where I Left Off</button>
+        <button class="btn btn-ghost" onclick="discardSavedRound()" style="margin-top:8px;">Start Fresh</button>
+      </div>
+    </div>`;
+      document.body.appendChild(overlay);
+    }
+
+    function restoreSavedRound() {
+      let saved;
+      try {
+        saved = JSON.parse(sessionStorage.getItem(SESSION_KEY));
+      } catch (e) { return; }
+
+      // Restore full state
+      gameState.roundType = saved.roundType;
+      gameState.nineChoice = saved.nineChoice;
+      gameState.courseName = saved.courseName;
+      gameState.goal = saved.goal;
+      gameState.pars = saved.pars;
+      gameState.targets = saved.targets;
+      gameState.scores = saved.scores;
+      gameState.currentNine = saved.currentNine;
+      selectedGoal = saved.goal;
+
+      // Close popup
+      const popup = document.getElementById('restore-popup');
+      if (popup) popup.remove();
+
+      // Rebuild scorecard UI
+      const is18 = gameState.roundType === 18;
+      document.getElementById('nine-tabs-wrap').style.display = is18 ? 'flex' : 'none';
+      const switchBtn = document.getElementById('btn-switch-nine');
+      switchBtn.style.display = is18 ? '' : 'none';
+      if (is18) {
+        document.getElementById('tab-front').classList.toggle('active', gameState.currentNine === 'front');
+        document.getElementById('tab-back').classList.toggle('active', gameState.currentNine === 'back');
+        switchBtn.textContent = gameState.currentNine === 'front' ? 'Back Nine →' : '← Front Nine';
+      }
+      document.getElementById('sc-title').textContent = gameState.courseName;
+      renderScorecard();
+      renderScoreEntry();
+      updateLiveStats();
+      navigateTo('screen-scorecard');
+    }
+
+    function discardSavedRound() {
+      clearSessionProgress();
+      const popup = document.getElementById('restore-popup');
+      if (popup) popup.remove();
+    }
+
+    // ── REFRESH / LEAVE PROTECTION ───────────────────────────────────────────────
+    // Attempts to block accidental refresh/close at the browser level.
+    // Note: mobile browsers (especially Safari) may ignore this — sessionStorage
+    // restore above is the real safety net.
+
+    window.addEventListener('beforeunload', (event) => {
+      const hasProgress = gameState.scores.some(s => s !== null);
+      if (hasProgress) {
+        event.preventDefault();
+        event.returnValue = '';
+        return '';
+      }
+    });
+
+    function resetAll() {
+      selectedGoal = null;
+      gameState.scores = [];
+      gameState.pars = [];
+      gameState.targets = [];
+      gameState.goal = null;
+      clearSessionProgress();
+      document.getElementById('course-name').value = '';
+      document.querySelectorAll('.goal-card, .round-option').forEach(el => el.classList.remove('selected'));
+
+      // Rebuild par grids to their default state
+      buildParGridSection('par-grid-front', 1, 9);
+      buildParGridSection('par-grid-back', 10, 9);
+
+      navigateTo('screen-round-type');
+    }
+
   </script>
 </body>
 
